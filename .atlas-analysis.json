@@ -1,0 +1,110 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Open Factura",
+  "projectDescription": "TypeScript library for electronic invoicing in Ecuador compatible with SRI technical specifications.",
+  "theme": "linden",
+  "primaryColor": "#2563eb",
+  "lightColor": "#3b82f6",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/invoice-structure",
+              "concepts/access-keys",
+              "concepts/sri-endpoints"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/generating-invoices",
+              "guides/signing-documents",
+              "guides/submitting-to-sri",
+              "guides/authorization",
+              "guides/complete-workflow"
+            ]
+          },
+          {
+            "group": "Type Definitions",
+            "pages": [
+              "types/invoice",
+              "types/tax-info",
+              "types/invoice-info",
+              "types/details",
+              "types/reimbursements",
+              "types/retentions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Invoice Generation",
+            "pages": [
+              "api/generate-invoice",
+              "api/generate-invoice-xml"
+            ]
+          },
+          {
+            "group": "Document Signing",
+            "pages": [
+              "api/sign-xml",
+              "api/get-p12-from-local-file",
+              "api/get-p12-from-url",
+              "api/get-xml-from-local-file",
+              "api/get-xml-from-url"
+            ]
+          },
+          {
+            "group": "SRI Integration",
+            "pages": [
+              "api/document-reception",
+              "api/document-authorization"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "TypeScript type definitions for SRI electronic invoices",
+    "XML generation from invoice data",
+    "Digital signature with XAdES-BES standard",
+    "Direct integration with SRI reception and authorization endpoints",
+    "Support for Security Data and Banco Central certificates",
+    "Complete invoice workflow from generation to authorization"
+  ],
+  "publicApiSurface": [
+    "generateInvoice",
+    "generateInvoiceXml",
+    "signXml",
+    "getP12FromLocalFile",
+    "getP12FromUrl",
+    "getXMLFromLocalFile",
+    "getXMLFromLocalUrl",
+    "documentReception",
+    "documentAuthorization",
+    "InvoiceInput",
+    "Invoice",
+    "TaxInfo",
+    "InvoiceInfo",
+    "Details",
+    "Reimbursements",
+    "Retentions"
+  ]
+}
