@@ -1,0 +1,412 @@
+---
+title: InvoiceInfo Types
+description: Invoice information types including buyer details, totals, taxes, and payment information
+---
+
+## Overview
+
+The `InvoiceInfo` type contains all the detailed information about the invoice including buyer information, amounts, taxes, and payment terms.
+
+## InvoiceInfo
+
+Main invoice information type containing all invoice details.
+
+```typescript
+export type InvoiceInfo = {
+  fechaEmision: string;
+  dirEstablecimiento: string;
+  contribuyenteEspecial?: string;
+  obligadoContabilidad: "SI" | "NO";
+  comercioExterior?: string;
+  incoTermFactura?: string;
+  lugarIncoTerm?: string;
+  paisOrigen?: string;
+  puertoEmbarque?: string;
+  puertoDestino?: string;
+  paisDestino?: string;
+  paisAdquisicion?: string;
+  tipoIdentificacionComprador: "04" | "05" | "06" | "07" | "08";
+  guiaRemision?: string;
+  razonSocialComprador: string;
+  identificacionComprador: string;
+  direccionComprador: string;
+  totalSinImpuestos: string;
+  totalSubsidio?: string;
+  incoTermTotalSinImpuestos?: string;
+  totalDescuento: string;
+  codDocReembolso?: string;
+  totalComprobantesReembolso?: string;
+  totalBaseImponibleReembolso?: string;
+  totalImpuestoReembolso?: string;
+  totalConImpuestos: TotalWithTaxes;
+  compensaciones?: Compensations;
+  propina?: string;
+  fleteInternacional?: string;
+  seguroInternacional?: string;
+  gastosAduaneros?: string;
+  gastosTransporteOtros?: string;
+  importeTotal: string;
+  moneda: string;
+  placa?: string;
+  pagos: Payments;
+  valorRetIva?: string;
+  valorRetRenta?: string;
+};
+```
+
+### Fields
+
+<ParamField path="fechaEmision" type="string" required>
+  Invoice emission date in format `DD/MM/YYYY` (e.g., `"01/01/2024"`)
+</ParamField>
+
+<ParamField path="dirEstablecimiento" type="string" required>
+  Establishment address where the invoice is issued
+</ParamField>
+
+<ParamField path="contribuyenteEspecial" type="string">
+  Special taxpayer resolution number, if applicable
+</ParamField>
+
+<ParamField path="obligadoContabilidad" type="'SI' | 'NO'" required>
+  Whether the business is required to keep accounting records
+  
+  - `"SI"` - Yes, required to keep accounting
+  - `"NO"` - Not required to keep accounting
+</ParamField>
+
+<ParamField path="comercioExterior" type="string">
+  Foreign trade designation (e.g., `"EXPORTADOR"` for exporter)
+</ParamField>
+
+<ParamField path="incoTermFactura" type="string">
+  Incoterm code for international trade
+</ParamField>
+
+<ParamField path="lugarIncoTerm" type="string">
+  Incoterm location
+</ParamField>
+
+<ParamField path="paisOrigen" type="string">
+  Country of origin code (3 digits)
+</ParamField>
+
+<ParamField path="puertoEmbarque" type="string">
+  Port of embarkation for international shipments
+</ParamField>
+
+<ParamField path="puertoDestino" type="string">
+  Port of destination for international shipments
+</ParamField>
+
+<ParamField path="paisDestino" type="string">
+  Destination country code (3 digits)
+</ParamField>
+
+<ParamField path="paisAdquisicion" type="string">
+  Acquisition country code (3 digits)
+</ParamField>
+
+<ParamField path="tipoIdentificacionComprador" type="string" required>
+  Buyer's identification type. Allowed values:
+  
+  - `"04"` - RUC
+  - `"05"` - CÉDULA (ID card)
+  - `"06"` - PASAPORTE (Passport)
+  - `"07"` - VENTA A CONSUMIDOR FINAL (Final consumer sale)
+  - `"08"` - IDENTIFICACIÓN DEL EXTERIOR (Foreign identification)
+</ParamField>
+
+<ParamField path="guiaRemision" type="string">
+  Remission guide number in format `XXX-XXX-XXXXXXXXX`
+</ParamField>
+
+<ParamField path="razonSocialComprador" type="string" required>
+  Buyer's legal/business name
+</ParamField>
+
+<ParamField path="identificacionComprador" type="string" required>
+  Buyer's identification number (RUC, ID, passport, etc.)
+</ParamField>
+
+<ParamField path="direccionComprador" type="string" required>
+  Buyer's address
+</ParamField>
+
+<ParamField path="totalSinImpuestos" type="string" required>
+  Total amount before taxes (decimal format: `"50.00"`)
+</ParamField>
+
+<ParamField path="totalSubsidio" type="string">
+  Total subsidy amount
+</ParamField>
+
+<ParamField path="incoTermTotalSinImpuestos" type="string">
+  Incoterm total without taxes
+</ParamField>
+
+<ParamField path="totalDescuento" type="string" required>
+  Total discount amount
+</ParamField>
+
+<ParamField path="codDocReembolso" type="string">
+  Reimbursement document code
+</ParamField>
+
+<ParamField path="totalComprobantesReembolso" type="string">
+  Total reimbursement receipts amount
+</ParamField>
+
+<ParamField path="totalBaseImponibleReembolso" type="string">
+  Total reimbursement taxable base
+</ParamField>
+
+<ParamField path="totalImpuestoReembolso" type="string">
+  Total reimbursement tax amount
+</ParamField>
+
+<ParamField path="totalConImpuestos" type="TotalWithTaxes" required>
+  Tax totals breakdown by tax type and rate. See [TotalWithTaxes](#totalwithtaxes)
+</ParamField>
+
+<ParamField path="compensaciones" type="Compensations">
+  Tax compensations. See [Compensations](#compensations)
+</ParamField>
+
+<ParamField path="propina" type="string">
+  Tip amount
+</ParamField>
+
+<ParamField path="fleteInternacional" type="string">
+  International freight charges
+</ParamField>
+
+<ParamField path="seguroInternacional" type="string">
+  International insurance charges
+</ParamField>
+
+<ParamField path="gastosAduaneros" type="string">
+  Customs expenses
+</ParamField>
+
+<ParamField path="gastosTransporteOtros" type="string">
+  Other transportation expenses
+</ParamField>
+
+<ParamField path="importeTotal" type="string" required>
+  Total invoice amount including all taxes and charges
+</ParamField>
+
+<ParamField path="moneda" type="string" required>
+  Currency code (e.g., `"USD"`, `"EUR"`)
+</ParamField>
+
+<ParamField path="placa" type="string">
+  Vehicle license plate (for transportation services)
+</ParamField>
+
+<ParamField path="pagos" type="Payments" required>
+  Payment information. See [Payments](#payments)
+</ParamField>
+
+<ParamField path="valorRetIva" type="string">
+  VAT retention amount
+</ParamField>
+
+<ParamField path="valorRetRenta" type="string">
+  Income tax retention amount
+</ParamField>
+
+## TotalWithTax
+
+Individual tax total information.
+
+```typescript
+export type TotalWithTax = {
+  codigo: "2" | "3" | "5";
+  codigoPorcentaje: "0" | "2" | "3" | "6" | "7" | "8";
+  descuentoAdicional: string;
+  baseImponible: string;
+  tarifa?: string;
+  valor: string;
+  valorDevolucionIva?: string;
+};
+```
+
+<ParamField path="codigo" type="string" required>
+  Tax code:
+  
+  - `"2"` - IVA (VAT)
+  - `"3"` - ICE (Special consumption tax)
+  - `"5"` - IRBPNR (Tax on non-renewable natural resources)
+</ParamField>
+
+<ParamField path="codigoPorcentaje" type="string" required>
+  Tax rate code. For IVA:
+  
+  - `"0"` - 0% IVA
+  - `"2"` - 12% IVA
+  - `"3"` - 14% IVA
+  - `"6"` - No Objeto de Impuesto (Not subject to tax)
+  - `"7"` - Exento de IVA (Exempt from VAT)
+  - `"8"` - IVA diferenciado (Differentiated VAT)
+  
+  For ICE, see table 18 of the electronic receipts technical sheet
+</ParamField>
+
+<ParamField path="descuentoAdicional" type="string" required>
+  Additional discount amount
+</ParamField>
+
+<ParamField path="baseImponible" type="string" required>
+  Taxable base amount
+</ParamField>
+
+<ParamField path="tarifa" type="string">
+  Tax rate percentage
+</ParamField>
+
+<ParamField path="valor" type="string" required>
+  Tax amount
+</ParamField>
+
+<ParamField path="valorDevolucionIva" type="string">
+  VAT refund amount
+</ParamField>
+
+## TotalWithTaxes
+
+Container for all tax totals.
+
+```typescript
+export type TotalWithTaxes = {
+  totalImpuesto: TotalWithTax[];
+};
+```
+
+<ParamField path="totalImpuesto" type="TotalWithTax[]" required>
+  Array of tax totals, one for each applicable tax type and rate
+</ParamField>
+
+## Compensation
+
+Individual compensation/offset information.
+
+```typescript
+export type Compensation = {
+  codigo: string;
+  tarifa: string;
+  valor: string;
+};
+```
+
+<ParamField path="codigo" type="string" required>
+  Compensation code
+</ParamField>
+
+<ParamField path="tarifa" type="string" required>
+  Compensation rate
+</ParamField>
+
+<ParamField path="valor" type="string" required>
+  Compensation amount
+</ParamField>
+
+## Compensations
+
+Container for all compensations.
+
+```typescript
+export type Compensations = {
+  compensacion: Compensation[];
+};
+```
+
+<ParamField path="compensacion" type="Compensation[]" required>
+  Array of compensation items
+</ParamField>
+
+## Payment
+
+Individual payment information.
+
+```typescript
+export type Payment = {
+  formaPago: string;
+  total: string;
+  plazo: string;
+  unidadTiempo: string;
+};
+```
+
+<ParamField path="formaPago" type="string" required>
+  Payment method code (e.g., `"01"` for cash, `"20"` for bank transfer). See SRI payment method codes
+</ParamField>
+
+<ParamField path="total" type="string" required>
+  Payment amount
+</ParamField>
+
+<ParamField path="plazo" type="string" required>
+  Payment term/period
+</ParamField>
+
+<ParamField path="unidadTiempo" type="string" required>
+  Time unit for payment term (e.g., `"dias"`, `"meses"`)
+</ParamField>
+
+## Payments
+
+Container for all payment information.
+
+```typescript
+export type Payments = {
+  pago: Payment[];
+};
+```
+
+<ParamField path="pago" type="Payment[]" required>
+  Array of payment items. Multiple payments can be specified for split payments
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { InvoiceInfo, TotalWithTaxes, Payments } from 'open-factura';
+
+const invoiceInfo: InvoiceInfo = {
+  fechaEmision: "03/03/2026",
+  dirEstablecimiento: "Av. Amazonas 123, Quito",
+  obligadoContabilidad: "SI",
+  tipoIdentificacionComprador: "04",
+  razonSocialComprador: "CLIENTE EJEMPLO S.A.",
+  identificacionComprador: "0987654321001",
+  direccionComprador: "Av. 6 de Diciembre 456, Quito",
+  totalSinImpuestos: "100.00",
+  totalDescuento: "0.00",
+  totalConImpuestos: {
+    totalImpuesto: [
+      {
+        codigo: "2",
+        codigoPorcentaje: "2",
+        descuentoAdicional: "0.00",
+        baseImponible: "100.00",
+        tarifa: "12",
+        valor: "12.00"
+      }
+    ]
+  },
+  importeTotal: "112.00",
+  moneda: "USD",
+  pagos: {
+    pago: [
+      {
+        formaPago: "01",
+        total: "112.00",
+        plazo: "0",
+        unidadTiempo: "dias"
+      }
+    ]
+  }
+};
+```

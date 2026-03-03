@@ -1,0 +1,94 @@
+---
+title: "getP12FromUrl"
+description: "Download a PKCS#12 certificate file from a URL"
+---
+
+## Function Signature
+
+```typescript
+async function getP12FromUrl(url: string): Promise<ArrayBuffer>
+```
+
+## Description
+
+Downloads a PKCS#12 certificate file (.p12 or .pfx) from a remote URL and returns it as an ArrayBuffer suitable for use with the `signXml()` function.
+
+This is useful when certificates are stored in cloud storage, content delivery networks, or secure certificate management services.
+
+## Parameters
+
+<ParamField path="url" type="string" required>
+  The URL where the PKCS#12 certificate file is hosted. Must be accessible via HTTP/HTTPS.
+</ParamField>
+
+## Returns
+
+<ResponseField name="arrayBuffer" type="ArrayBuffer">
+  A Promise that resolves to the certificate file data as an ArrayBuffer, ready to be passed to `signXml()`.
+</ResponseField>
+
+## Errors
+
+- Throws network errors if the URL is unreachable
+- May throw HTTP errors (404, 403, etc.) if the resource is not available
+- May throw timeout errors for slow connections
+
+## Example Usage
+
+```typescript
+import { getP12FromUrl, signXml, getXMLFromLocalFile } from './services/signing';
+
+async function signDocumentFromRemoteCert() {
+  // Download certificate from URL
+  const p12Data = await getP12FromUrl(
+    'https://example.com/certificates/my-cert.p12'
+  );
+  
+  const xmlData = getXMLFromLocalFile('./invoice.xml');
+  
+  // Sign the XML
+  const signedXml = await signXml(
+    p12Data,
+    'certificate-password',
+    xmlData
+  );
+  
+  return signedXml;
+}
+```
+
+## Example with Cloud Storage
+
+```typescript
+import { getP12FromUrl } from './services/signing';
+
+async function loadCertFromS3() {
+  // Load certificate from AWS S3 pre-signed URL
+  const s3Url = 'https://my-bucket.s3.amazonaws.com/certs/cert.p12?X-Amz-Algorithm=...';
+  
+  try {
+    const p12Data = await getP12FromUrl(s3Url);
+    console.log('Certificate loaded from S3');
+    return p12Data;
+  } catch (error) {
+    console.error('Failed to download certificate:', error);
+    throw error;
+  }
+}
+```
+
+## Security Considerations
+
+<Warning>
+  Always use HTTPS URLs when downloading certificates to prevent man-in-the-middle attacks. Consider using:
+  - Pre-signed URLs with expiration
+  - Authentication tokens in headers
+  - Private network endpoints
+</Warning>
+
+## Related Functions
+
+- [`getP12FromLocalFile()`](/api/get-p12-from-local-file) - Load certificate from local filesystem
+- [`signXml()`](/api/sign-xml) - Sign XML documents with the loaded certificate
+
+Source: `src/services/signing.ts:14`

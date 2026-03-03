@@ -1,0 +1,191 @@
+---
+title: Retentions Types
+description: Tax retention information for invoices with withholding requirements
+---
+
+## Overview
+
+The Retentions types are used when the invoice includes tax retentions (withholdings). In Ecuador, certain businesses are required to withhold a percentage of taxes on behalf of the tax authority.
+
+## Retentions
+
+Container for all retention information.
+
+```typescript
+export type Retentions = {
+  retencion: Retention[];
+};
+```
+
+<ParamField path="retencion" type="Retention[]" required>
+  Array of retention items. Multiple retentions can be applied to a single invoice (e.g., IVA retention + income tax retention)
+</ParamField>
+
+## Retention
+
+Individual tax retention details.
+
+```typescript
+export type Retention = {
+  codigo: string;
+  codigoPorcentaje: string;
+  tarifa: string;
+  valor: string;
+};
+```
+
+### Fields
+
+<ParamField path="codigo" type="string" required>
+  Retention tax code:
+  
+  - `"1"` - Income tax retention (Retención de Renta)
+  - `"2"` - VAT retention (Retención de IVA)
+  - `"4"` - Other retentions
+  
+  See SRI retention code tables for complete list
+</ParamField>
+
+<ParamField path="codigoPorcentaje" type="string" required>
+  Retention rate code. This varies based on the retention type:
+  
+  For VAT retention (`codigo: "2"`):
+  - `"0"` - 0%
+  - `"10"` - 10%
+  - `"20"` - 20%
+  - `"30"` - 30%
+  - `"70"` - 70%
+  - `"100"` - 100%
+  
+  For income tax retention (`codigo: "1"`), see SRI retention percentage table
+</ParamField>
+
+<ParamField path="tarifa" type="string" required>
+  Retention rate percentage (e.g., `"10"` for 10%, `"1"` for 1%)
+</ParamField>
+
+<ParamField path="valor" type="string" required>
+  Retention amount. Formula: `baseImponible × (tarifa / 100)`
+  
+  where `baseImponible` is typically the subtotal or tax amount from the invoice
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { Retentions } from 'open-factura';
+
+// Example: Invoice with both VAT and income tax retentions
+const retentions: Retentions = {
+  retencion: [
+    {
+      codigo: "2", // VAT retention
+      codigoPorcentaje: "70", // 70% retention
+      tarifa: "70",
+      valor: "8.40" // e.g., 12.00 IVA × 0.70
+    },
+    {
+      codigo: "1", // Income tax retention
+      codigoPorcentaje: "303", // 1% retention code
+      tarifa: "1",
+      valor: "1.00" // e.g., 100.00 subtotal × 0.01
+    }
+  ]
+};
+```
+
+## Common Retention Scenarios
+
+### VAT Retention (70%)
+
+Most common for services provided to public entities or large companies:
+
+```typescript
+const vatRetention: Retention = {
+  codigo: "2",
+  codigoPorcentaje: "70",
+  tarifa: "70",
+  valor: "8.40" // From IVA of 12.00
+};
+```
+
+### VAT Retention (100%)
+
+Used for certain professional services:
+
+```typescript
+const fullVatRetention: Retention = {
+  codigo: "2",
+  codigoPorcentaje: "100",
+  tarifa: "100",
+  valor: "12.00" // Full IVA amount
+};
+```
+
+### Income Tax Retention (1%)
+
+Common for goods:
+
+```typescript
+const incomeRetention: Retention = {
+  codigo: "1",
+  codigoPorcentaje: "303", // Code for 1%
+  tarifa: "1",
+  valor: "1.00" // From subtotal of 100.00
+};
+```
+
+### Income Tax Retention (2%)
+
+Common for services:
+
+```typescript
+const serviceRetention: Retention = {
+  codigo: "1",
+  codigoPorcentaje: "304", // Code for 2%
+  tarifa: "2",
+  valor: "2.00" // From subtotal of 100.00
+};
+```
+
+## Notes
+
+- Retentions reduce the amount the buyer pays to the seller
+- The withheld amount is paid directly to the tax authority (SRI) by the buyer
+- Not all invoices require retentions - this depends on buyer/seller types and transaction nature
+- Retention amounts should be reflected in the invoice totals (`valorRetIva` and `valorRetRenta` in InvoiceInfo)
+- The buyer must issue a retention receipt (Comprobante de Retención) for any withholdings
+- Retention codes and percentages are defined by SRI and may change - always verify current rates
+- When retentions are applied, the final payment to the seller is: `importeTotal - valorRetIva - valorRetRenta`
+
+## Integration with InvoiceInfo
+
+When using retentions, make sure to also populate the retention totals in InvoiceInfo:
+
+```typescript
+import { InvoiceInfo, Retentions } from 'open-factura';
+
+const invoiceInfo: InvoiceInfo = {
+  // ... other fields
+  valorRetIva: "8.40",    // Total VAT retention
+  valorRetRenta: "1.00",  // Total income tax retention
+  // ...
+};
+
+const retentions: Retentions = {
+  retencion: [
+    {
+      codigo: "2",
+      codigoPorcentaje: "70",
+      tarifa: "70",
+      valor: "8.40" // Matches valorRetIva
+    },
+    {
+      codigo: "1",
+      codigoPorcentaje: "303",
+      tarifa: "1",
+      valor: "1.00" // Matches valorRetRenta
+    }
+  ]
+};
+```

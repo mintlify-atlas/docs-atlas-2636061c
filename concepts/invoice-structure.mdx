@@ -1,0 +1,268 @@
+---
+title: "Invoice Structure"
+description: "Understanding the electronic invoice data structure and TypeScript types in Open Factura"
+---
+
+## Overview
+
+Open Factura uses a comprehensive TypeScript type system to ensure your invoices comply with Ecuador's SRI electronic invoicing requirements. The invoice structure is composed of several key sections that work together to create a valid electronic document.
+
+## Main Invoice Type
+
+The primary invoice structure is defined by the `Invoice` type, which wraps all invoice data in a `factura` element:
+
+```typescript
+export type Invoice = {
+  factura: {
+    "@xmlns:ds": string;
+    "@xmlns:xsi": string;
+    "@id": string;
+    "@version": string;
+    infoTributaria: TaxInfo;
+    infoFactura: InvoiceInfo;
+    detalles: Details;
+    reembolsos?: Reimbursements;
+    retenciones?: Retentions;
+    infoSustitutivaGuiaRemision?: RemisionGuideSustitutiveInfo;
+    otrosRubrosTerceros?: OtherThirdPartyValues;
+    tipoNegociable?: {
+      correo: string;
+    };
+    maquinaFiscal?: {
+      marca: string;
+      modelo: string;
+      serie: string;
+    };
+    infoAdicional?: AdditionalInfo;
+  };
+};
+```
+
+<Note>
+  Fields marked with `?` are optional and only need to be included when applicable to your specific invoice.
+</Note>
+
+## Core Sections
+
+### Tax Information (infoTributaria)
+
+Contains the issuer's tax information and document identification:
+
+```typescript
+export type TaxInfo = {
+  ambiente: "1" | "2"; // 1 = Testing, 2 = Production
+  tipoEmision: string;
+  razonSocial: string;
+  nombreComercial: string;
+  ruc: string;
+  claveAcceso: string; // Generated automatically
+  codDoc: "01" | "03" | "04" | "05" | "06" | "07";
+  estab: string; // Establishment code (3 digits)
+  ptoEmi: string; // Emission point (3 digits)
+  secuencial: string; // Sequential number (9 digits)
+  dirMatriz: string;
+  regimenMicroempresas?: "CONTRIBUYENTE RÉGIMEN MICROEMPRESAS";
+  agenteRetencion?: string;
+  contribuyenteRimpe?:
+    | "CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE"
+    | "CONTRIBUYENTE RÉGIMEN RIMPE";
+};
+```
+
+**Document Types (codDoc):**
+- `01` - FACTURA (Invoice)
+- `03` - LIQUIDACIÓN DE COMPRA
+- `04` - NOTA DE CRÉDITO (Credit Note)
+- `05` - NOTA DE DÉBITO (Debit Note)
+- `06` - GUÍA DE REMISIÓN (Delivery Guide)
+- `07` - COMPROBANTE DE RETENCIÓN (Withholding Receipt)
+
+### Invoice Information (infoFactura)
+
+Contains transaction details, buyer information, and totals:
+
+```typescript
+export type InvoiceInfo = {
+  fechaEmision: string;
+  dirEstablecimiento: string;
+  contribuyenteEspecial?: string;
+  obligadoContabilidad: "SI" | "NO";
+  tipoIdentificacionComprador: "04" | "05" | "06" | "07" | "08";
+  razonSocialComprador: string;
+  identificacionComprador: string;
+  direccionComprador: string;
+  totalSinImpuestos: string;
+  totalDescuento: string;
+  totalConImpuestos: TotalWithTaxes;
+  importeTotal: string;
+  moneda: string;
+  pagos: Payments;
+  // ... additional optional fields
+};
+```
+
+**Buyer Identification Types:**
+- `04` - RUC
+- `05` - CÉDULA
+- `06` - PASAPORTE
+- `07` - VENTA A CONSUMIDOR FINAL
+- `08` - IDENTIFICACIÓN DEL EXTERIOR
+
+### Invoice Details (detalles)
+
+Line items with individual product or service information:
+
+```typescript
+export type Detail = {
+  codigoPrincipal: string;
+  codigoAuxiliar: string;
+  descripcion: string;
+  unidadMedida?: string;
+  cantidad: string;
+  precioUnitario: string;
+  precioSinSubsidio?: string;
+  descuento: string;
+  precioTotalSinImpuesto: string;
+  detallesAdicionales?: AdditionalDetails;
+  impuestos: Taxes;
+};
+
+export type Details = {
+  detalle: Detail[];
+};
+```
+
+### Tax Breakdown
+
+Each detail includes tax information:
+
+```typescript
+export type Tax = {
+  codigo: string; // 2 = IVA, 3 = ICE, 5 = IRBPNR
+  codigoPorcentaje: string;
+  tarifa: string;
+  baseImponible: string;
+  valor: string;
+};
+
+export type Taxes = {
+  impuesto: Tax[];
+};
+```
+
+**IVA Percentage Codes (codigoPorcentaje):**
+- `0` - IVA 0%
+- `2` - IVA 12%
+- `3` - IVA 14%
+- `6` - No Objeto de Impuesto
+- `7` - Exento de IVA
+- `8` - IVA diferenciado
+
+## Creating an Invoice
+
+When creating an invoice, use the `InvoiceInput` type which omits the auto-generated `claveAcceso`:
+
+```typescript
+export type InvoiceInput = {
+  infoTributaria: Omit<TaxInfo, "claveAcceso">;
+  infoFactura: InvoiceInfo;
+  detalles: Details;
+  reembolsos?: Reimbursements;
+  retenciones?: Retentions;
+  infoSustitutivaGuiaRemision?: RemisionGuideSustitutiveInfo;
+  otrosRubrosTerceros?: OtherThirdPartyValues;
+  tipoNegociable?: { correo: string };
+  maquinaFiscal?: { marca: string; modelo: string; serie: string };
+  infoAdicional?: AdditionalInfo;
+};
+```
+
+<Info>
+  The `generateInvoice()` function automatically generates the access key (claveAcceso) based on your invoice data.
+</Info>
+
+## Example Usage
+
+```typescript
+import { generateInvoice } from "open-factura";
+
+const { invoice, accessKey } = generateInvoice({
+  infoTributaria: {
+    ambiente: "1",
+    tipoEmision: "1",
+    razonSocial: "Mi Empresa S.A.",
+    nombreComercial: "Mi Empresa",
+    ruc: "1234567890001",
+    codDoc: "01",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    dirMatriz: "Av. Principal 123",
+  },
+  infoFactura: {
+    fechaEmision: "01/12/2024",
+    dirEstablecimiento: "Av. Principal 123",
+    obligadoContabilidad: "SI",
+    tipoIdentificacionComprador: "05",
+    razonSocialComprador: "Cliente Ejemplo",
+    identificacionComprador: "0987654321",
+    direccionComprador: "Calle Secundaria 456",
+    totalSinImpuestos: "100.00",
+    totalDescuento: "0.00",
+    totalConImpuestos: {
+      totalImpuesto: [{
+        codigo: "2",
+        codigoPorcentaje: "2",
+        baseImponible: "100.00",
+        tarifa: "12.00",
+        valor: "12.00"
+      }]
+    },
+    importeTotal: "112.00",
+    moneda: "DOLAR",
+    pagos: {
+      pago: [{
+        formaPago: "01",
+        total: "112.00",
+        plazo: "0",
+        unidadTiempo: "dias"
+      }]
+    }
+  },
+  detalles: {
+    detalle: [{
+      codigoPrincipal: "PROD001",
+      codigoAuxiliar: "AUX001",
+      descripcion: "Producto de ejemplo",
+      cantidad: "1.000000",
+      precioUnitario: "100.000000",
+      descuento: "0.00",
+      precioTotalSinImpuesto: "100.00",
+      impuestos: {
+        impuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          tarifa: "12.00",
+          baseImponible: "100.00",
+          valor: "12.00"
+        }]
+      }
+    }]
+  }
+});
+```
+
+<Warning>
+  All monetary amounts must be formatted as strings with two decimal places (e.g., "100.00").
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Access Keys" icon="key" href="/concepts/access-keys">
+    Learn how access keys are generated and validated
+  </Card>
+  <Card title="SRI Endpoints" icon="server" href="/concepts/sri-endpoints">
+    Configure endpoints for testing and production
+  </Card>
+</CardGroup>

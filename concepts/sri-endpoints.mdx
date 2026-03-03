@@ -1,0 +1,411 @@
+---
+title: "SRI Endpoints"
+description: "Configure SRI web service endpoints for testing and production environments"
+---
+
+## Overview
+
+The SRI (Servicio de Rentas Internas) provides SOAP web service endpoints for submitting and authorizing electronic documents. Open Factura supports both testing and production environments through two main endpoints:
+
+1. **Reception Endpoint** - For submitting signed XML documents
+2. **Authorization Endpoint** - For checking authorization status
+
+<Warning>
+  You must activate the testing or production environment in your SRI account before using these endpoints. Attempting to use endpoints without proper activation will result in rejection.
+</Warning>
+
+## Environment Configuration
+
+### Testing Environment (Pruebas)
+
+Use these endpoints for development and testing:
+
+```bash
+SRI_RECEPTION_URL="https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
+SRI_AUTHORIZATION_URL="https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl"
+```
+
+**Key Points:**
+- Domain: `celcer.sri.gob.ec` (note the "cer" suffix for certification)
+- Used with `ambiente: "1"` in invoice data
+- Requires testing environment activation in SRI account
+- Documents are not legally valid
+
+### Production Environment (Producción)
+
+Use these endpoints for actual business operations:
+
+```bash
+SRI_RECEPTION_URL="https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
+SRI_AUTHORIZATION_URL="https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl"
+```
+
+**Key Points:**
+- Domain: `cel.sri.gob.ec`
+- Used with `ambiente: "2"` in invoice data
+- Requires production environment activation in SRI account
+- Documents are legally valid for tax purposes
+
+<Note>
+  The only difference between testing and production URLs is the domain: `celcer.sri.gob.ec` vs `cel.sri.gob.ec`
+</Note>
+
+## Setting Up Environment Variables
+
+Create a `.env` file in your project root:
+
+```bash
+# For testing
+SRI_RECEPTION_URL=https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+SRI_AUTHORIZATION_URL=https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+
+# For production (uncomment when ready)
+# SRI_RECEPTION_URL=https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+# SRI_AUTHORIZATION_URL=https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```
+
+## Reception Endpoint
+
+The reception endpoint validates and receives signed XML documents.
+
+### Function Usage
+
+```typescript
+import { documentReception } from "open-factura";
+
+const receptionResult = await documentReception(
+  signedInvoiceXml,
+  process.env.SRI_RECEPTION_URL!
+);
+```
+
+### Implementation Details
+
+From `src/services/reception.ts:3`:
+
+```typescript
+export async function documentReception(
+  stringXML: string,
+  receptionUrl: string
+): Promise<any> {
+  const base64XML = Buffer.from(stringXML).toString("base64");
+  let params = { xml: base64XML };
+
+  let receptionResult: any;
+
+  const receptionRequest = new Promise((resolve, reject) => {
+    createClient(receptionUrl, (err, client: Client) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      client.validarComprobante(params, (err: any, result: unknown) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(result);
+      });
+    });
+  });
+
+  receptionResult = await receptionRequest;
+  return receptionResult;
+}
+```
+
+### What It Does
+
+1. Converts the signed XML to Base64 encoding
+2. Creates a SOAP client connection to the reception URL
+3. Calls the `validarComprobante` web service method
+4. Returns the validation result
+
+### Response
+
+The SRI returns a response indicating whether the document was accepted:
+
+```javascript
+{
+  RespuestaRecepcionComprobante: {
+    estado: "RECIBIDA" | "DEVUELTA",
+    comprobantes: {
+      comprobante: {
+        claveAcceso: "...",
+        mensajes: {
+          mensaje: [
+            {
+              identificador: "...",
+              mensaje: "...",
+              tipo: "ERROR" | "ADVERTENCIA",
+              informacionAdicional: "..."
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+## Authorization Endpoint
+
+The authorization endpoint checks the authorization status of a submitted document.
+
+### Function Usage
+
+```typescript
+import { documentAuthorization } from "open-factura";
+
+const authorizationResult = await documentAuthorization(
+  accessKey,
+  process.env.SRI_AUTHORIZATION_URL!
+);
+```
+
+### Implementation Details
+
+From `src/services/authorization.ts:3`:
+
+```typescript
+export async function documentAuthorization(
+  accesKey: string,
+  authorizationUrl: string
+) {
+  let params = { claveAccesoComprobante: accesKey };
+
+  let authorizationResponse: any;
+
+  const authorizationRequest = new Promise((resolve, reject) => {
+    createClient(authorizationUrl, (err: any, client: Client) => {
+      client.autorizacionComprobante(params, (err: any, result: unknown) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(result);
+      });
+    });
+  });
+
+  authorizationResponse = await authorizationRequest;
+
+  return authorizationResponse;
+}
+```
+
+### What It Does
+
+1. Creates a SOAP client connection to the authorization URL
+2. Calls the `autorizacionComprobante` web service method with the access key
+3. Returns the authorization status
+
+### Response
+
+The SRI returns the authorization details:
+
+```javascript
+{
+  RespuestaAutorizacionComprobante: {
+    claveAccesoConsultada: "...",
+    numeroComprobantes: "1",
+    autorizaciones: {
+      autorizacion: {
+        estado: "AUTORIZADO" | "NO AUTORIZADO" | "EN PROCESAMIENTO",
+        numeroAutorizacion: "...",
+        fechaAutorizacion: "...",
+        ambiente: "PRUEBAS" | "PRODUCCION",
+        comprobante: "<xml>...</xml>",
+        mensajes: {
+          mensaje: [...]
+        }
+      }
+    }
+  }
+}
+```
+
+## Complete Workflow Example
+
+Here's a complete example from `tests/main.ts:1` showing how to use both endpoints:
+
+```typescript
+import {
+  documentAuthorization,
+  documentReception,
+  generateInvoice,
+  generateInvoiceXml,
+  getP12FromUrl,
+  signXml,
+} from "open-factura";
+
+// 1. Generate invoice with access key
+const { invoice, accessKey } = generateInvoice({
+  infoTributaria: {
+    ambiente: "1", // Testing environment
+    tipoEmision: "1",
+    razonSocial: "Mi Empresa S.A.",
+    ruc: "1234567890001",
+    codDoc: "01",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    dirMatriz: "Av. Principal 123",
+  },
+  infoFactura: {
+    fechaEmision: "01/12/2024",
+    obligadoContabilidad: "SI",
+    tipoIdentificacionComprador: "05",
+    razonSocialComprador: "Cliente Ejemplo",
+    identificacionComprador: "0987654321",
+    direccionComprador: "Calle Secundaria 456",
+    totalSinImpuestos: "100.00",
+    totalDescuento: "0.00",
+    importeTotal: "112.00",
+    moneda: "DOLAR",
+    // ... more fields
+  },
+  detalles: {
+    // ... invoice details
+  },
+});
+
+// 2. Generate XML
+const invoiceXml = generateInvoiceXml(invoice);
+
+// 3. Load digital signature and sign XML
+const signature: ArrayBuffer = await getP12FromUrl("yoururl");
+const password = "yourpassword";
+const signedInvoice = await signXml(signature, password, invoiceXml);
+
+// 4. Submit to SRI reception endpoint
+const receptionResult = await documentReception(
+  signedInvoice,
+  process.env.SRI_RECEPTION_URL!
+);
+
+console.log("Reception result:", receptionResult);
+
+// 5. Check authorization status
+const authorizationResult = await documentAuthorization(
+  accessKey,
+  process.env.SRI_AUTHORIZATION_URL!
+);
+
+console.log("Authorization result:", authorizationResult);
+```
+
+<Info>
+  The authorization check should be performed after reception. The SRI may take a few seconds to process the document.
+</Info>
+
+## Activating SRI Environments
+
+Before using these endpoints, you must activate the corresponding environment in your SRI account:
+
+### Testing Environment Activation
+
+1. Log in to your SRI account
+2. Navigate to the electronic invoicing section
+3. Request testing environment activation
+4. Wait for SRI approval (usually 1-2 business days)
+5. Once approved, use the testing endpoints
+
+### Production Environment Activation
+
+1. Complete successful testing
+2. Request production environment activation through SRI
+3. Submit required documentation
+4. Wait for SRI approval
+5. Once approved, switch to production endpoints
+
+<Warning>
+  **Important**: You cannot use production endpoints without proper activation. The SRI will reject all requests.
+</Warning>
+
+**Detailed Activation Guide**: [How to enable the production environment in SRI](https://www.factureromovil.com/pasos-para-habilitar-el-ambiente-de-produccion-en-sri)
+
+## Endpoint Matching
+
+Ensure the `ambiente` field in your invoice matches the endpoints you're using:
+
+| Invoice ambiente | Endpoints | Environment |
+|-----------------|-----------|-------------|
+| `"1"` | `celcer.sri.gob.ec` | Testing |
+| `"2"` | `cel.sri.gob.ec` | Production |
+
+```typescript
+const { invoice, accessKey } = generateInvoice({
+  infoTributaria: {
+    ambiente: "1", // Must match endpoint environment
+    // ...
+  },
+  // ...
+});
+
+// Use corresponding endpoint
+await documentReception(
+  signedXml,
+  "https://celcer.sri.gob.ec/..." // Testing endpoint
+);
+```
+
+## Error Handling
+
+Always implement proper error handling for endpoint calls:
+
+```typescript
+try {
+  const receptionResult = await documentReception(
+    signedInvoice,
+    process.env.SRI_RECEPTION_URL!
+  );
+  
+  if (receptionResult.RespuestaRecepcionComprobante.estado === "DEVUELTA") {
+    console.error("Document rejected:", 
+      receptionResult.RespuestaRecepcionComprobante.comprobantes.comprobante.mensajes
+    );
+  }
+} catch (error) {
+  console.error("Reception failed:", error);
+}
+```
+
+## Best Practices
+
+1. **Environment Variables**: Always use environment variables for endpoint URLs
+2. **Testing First**: Thoroughly test in the testing environment before moving to production
+3. **Error Logging**: Log all responses for debugging and audit purposes
+4. **Retry Logic**: Implement retry logic for network failures
+5. **Timeout Handling**: Set appropriate timeouts for SOAP requests
+6. **Access Key Storage**: Store access keys for future authorization checks
+
+## Troubleshooting
+
+### Common Issues
+
+**"Environment not activated"**
+- Solution: Activate the testing or production environment in your SRI account
+
+**"Invalid access key"**
+- Solution: Ensure the access key matches the document and environment
+
+**"Document rejected"**
+- Solution: Check the error messages in the response for specific validation issues
+
+**"Connection timeout"**
+- Solution: Verify your internet connection and SRI service status
+
+**"WSDL not found"**
+- Solution: Check that the endpoint URL is correct and includes the `?wsdl` suffix
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Invoice Structure" icon="file-invoice" href="/concepts/invoice-structure">
+    Understand the invoice data structure
+  </Card>
+  <Card title="Access Keys" icon="key" href="/concepts/access-keys">
+    Learn about access key generation
+  </Card>
+</CardGroup>

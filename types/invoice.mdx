@@ -1,0 +1,235 @@
+---
+title: Invoice Types
+description: Core invoice types including Invoice and InvoiceInput for creating electronic invoices in Ecuador
+---
+
+## Overview
+
+The Invoice types represent the complete structure of an electronic invoice (factura) as required by Ecuador's tax authority (SRI). The main types are `Invoice` for the full XML structure and `InvoiceInput` for creating new invoices.
+
+## Invoice
+
+The complete invoice structure with all required XML namespaces and attributes.
+
+```typescript
+export type Invoice = {
+  factura: {
+    "@xmlns:ds": string;
+    "@xmlns:xsi": string;
+    "@id": string;
+    "@version": string;
+    infoTributaria: TaxInfo;
+    infoFactura: InvoiceInfo;
+    detalles: Details;
+    reembolsos?: Reimbursements;
+    retenciones?: Retentions;
+    infoSustitutivaGuiaRemision?: RemisionGuideSustitutiveInfo;
+    otrosRubrosTerceros?: OtherThirdPartyValues;
+    tipoNegociable?: {
+      correo: string;
+    };
+    maquinaFiscal?: {
+      marca: string;
+      modelo: string;
+      serie: string;
+    };
+    infoAdicional?: AdditionalInfo;
+  };
+};
+```
+
+### Fields
+
+<ParamField path="factura" type="object" required>
+  The root element of the invoice
+</ParamField>
+
+<ParamField path="factura.@xmlns:ds" type="string" required>
+  XML digital signature namespace. Default: `http://www.w3.org/2000/09/xmldsig#`
+</ParamField>
+
+<ParamField path="factura.@xmlns:xsi" type="string" required>
+  XML schema instance namespace. Default: `http://www.w3.org/2001/XMLSchema-instance`
+</ParamField>
+
+<ParamField path="factura.@id" type="string" required>
+  XML element identifier. Default: `comprobante`
+</ParamField>
+
+<ParamField path="factura.@version" type="string" required>
+  Invoice version identifier
+</ParamField>
+
+<ParamField path="factura.infoTributaria" type="TaxInfo" required>
+  Tax information including RUC, business details, and document type. See [TaxInfo](/types/tax-info)
+</ParamField>
+
+<ParamField path="factura.infoFactura" type="InvoiceInfo" required>
+  Invoice details including buyer information, totals, and payment terms. See [InvoiceInfo](/types/invoice-info)
+</ParamField>
+
+<ParamField path="factura.detalles" type="Details" required>
+  Line items and product/service details. See [Details](/types/details)
+</ParamField>
+
+<ParamField path="factura.reembolsos" type="Reimbursements">
+  Optional reimbursement information. See [Reimbursements](/types/reimbursements)
+</ParamField>
+
+<ParamField path="factura.retenciones" type="Retentions">
+  Optional tax retention information. See [Retentions](/types/retentions)
+</ParamField>
+
+<ParamField path="factura.infoSustitutivaGuiaRemision" type="RemisionGuideSustitutiveInfo">
+  Optional remission guide substitutive information
+</ParamField>
+
+<ParamField path="factura.otrosRubrosTerceros" type="OtherThirdPartyValues">
+  Optional third-party values and charges
+</ParamField>
+
+<ParamField path="factura.tipoNegociable" type="object">
+  Optional negotiable document information
+  
+  <Expandable title="properties">
+    <ParamField path="correo" type="string" required>
+      Email address for negotiable document
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="factura.maquinaFiscal" type="object">
+  Optional fiscal machine information for retail environments
+  
+  <Expandable title="properties">
+    <ParamField path="marca" type="string" required>
+      Fiscal machine brand/make
+    </ParamField>
+    
+    <ParamField path="modelo" type="string" required>
+      Fiscal machine model
+    </ParamField>
+    
+    <ParamField path="serie" type="string" required>
+      Fiscal machine serial number
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="factura.infoAdicional" type="AdditionalInfo">
+  Optional additional information fields
+</ParamField>
+
+## InvoiceInput
+
+Input type for creating new invoices. Similar to `Invoice` but excludes XML attributes and the `claveAcceso` (access key) which is generated automatically.
+
+```typescript
+export type InvoiceInput = {
+  infoTributaria: Omit<TaxInfo, "claveAcceso">;
+  infoFactura: InvoiceInfo;
+  detalles: Details;
+  reembolsos?: Reimbursements;
+  retenciones?: Retentions;
+  infoSustitutivaGuiaRemision?: RemisionGuideSustitutiveInfo;
+  otrosRubrosTerceros?: OtherThirdPartyValues;
+  tipoNegociable?: {
+    correo: string;
+  };
+  maquinaFiscal?: {
+    marca: string;
+    modelo: string;
+    serie: string;
+  };
+  infoAdicional?: AdditionalInfo;
+};
+```
+
+### Fields
+
+<ParamField path="infoTributaria" type="Omit<TaxInfo, 'claveAcceso'>" required>
+  Tax information without the access key (generated automatically). See [TaxInfo](/types/tax-info)
+</ParamField>
+
+<ParamField path="infoFactura" type="InvoiceInfo" required>
+  Invoice details including buyer information and totals. See [InvoiceInfo](/types/invoice-info)
+</ParamField>
+
+<ParamField path="detalles" type="Details" required>
+  Line items and product/service details. See [Details](/types/details)
+</ParamField>
+
+<ParamField path="reembolsos" type="Reimbursements">
+  Optional reimbursement information. See [Reimbursements](/types/reimbursements)
+</ParamField>
+
+<ParamField path="retenciones" type="Retentions">
+  Optional tax retention information. See [Retentions](/types/retentions)
+</ParamField>
+
+<ParamField path="infoSustitutivaGuiaRemision" type="RemisionGuideSustitutiveInfo">
+  Optional remission guide substitutive information
+</ParamField>
+
+<ParamField path="otrosRubrosTerceros" type="OtherThirdPartyValues">
+  Optional third-party values and charges
+</ParamField>
+
+<ParamField path="tipoNegociable" type="object">
+  Optional negotiable document information
+  
+  <Expandable title="properties">
+    <ParamField path="correo" type="string" required>
+      Email address for negotiable document
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="maquinaFiscal" type="object">
+  Optional fiscal machine information
+  
+  <Expandable title="properties">
+    <ParamField path="marca" type="string" required>
+      Fiscal machine brand
+    </ParamField>
+    
+    <ParamField path="modelo" type="string" required>
+      Fiscal machine model
+    </ParamField>
+    
+    <ParamField path="serie" type="string" required>
+      Fiscal machine serial number
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="infoAdicional" type="AdditionalInfo">
+  Optional additional information fields
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { InvoiceInput } from 'open-factura';
+
+const invoice: InvoiceInput = {
+  infoTributaria: {
+    ambiente: "1", // Testing environment
+    tipoEmision: "1",
+    razonSocial: "Mi Empresa S.A.",
+    nombreComercial: "Mi Empresa",
+    ruc: "1234567890001",
+    codDoc: "01", // Invoice
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    dirMatriz: "Av. Principal 123"
+  },
+  infoFactura: {
+    // ... invoice info
+  },
+  detalles: {
+    // ... line items
+  }
+};
+```

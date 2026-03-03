@@ -1,0 +1,99 @@
+---
+title: "getXMLFromLocalFile"
+description: "Load an XML document from the local filesystem"
+---
+
+## Function Signature
+
+```typescript
+function getXMLFromLocalFile(path: string): string
+```
+
+## Description
+
+Reads an XML document from the local filesystem and returns it as a UTF-8 encoded string suitable for use with the `signXml()` function.
+
+This function is typically used to load electronic invoice XML files before signing them.
+
+## Parameters
+
+<ParamField path="path" type="string" required>
+  The file system path to the XML file. Can be relative or absolute.
+</ParamField>
+
+## Returns
+
+<ResponseField name="xmlString" type="string">
+  The XML document content as a UTF-8 string, ready to be passed to `signXml()`.
+</ResponseField>
+
+## Errors
+
+- Throws file system errors if the file doesn't exist or cannot be read
+- May throw permission errors if the process lacks read access to the file
+- May throw encoding errors if the file is not valid UTF-8
+
+## Example Usage
+
+```typescript
+import { getXMLFromLocalFile, signXml, getP12FromLocalFile } from './services/signing';
+
+async function signInvoice() {
+  // Load XML from local file
+  const xmlData = getXMLFromLocalFile('./invoices/invoice-001.xml');
+  const p12Data = getP12FromLocalFile('./certificate.p12');
+  
+  // Sign the document
+  const signedXml = await signXml(
+    p12Data,
+    'certificate-password',
+    xmlData
+  );
+  
+  return signedXml;
+}
+```
+
+## Example with Multiple Files
+
+```typescript
+import { getXMLFromLocalFile } from './services/signing';
+import { readdirSync } from 'fs';
+import { join } from 'path';
+
+function loadAllInvoices(directory: string): string[] {
+  const files = readdirSync(directory)
+    .filter(file => file.endsWith('.xml'));
+  
+  return files.map(file => {
+    const path = join(directory, file);
+    return getXMLFromLocalFile(path);
+  });
+}
+
+const invoices = loadAllInvoices('./invoices');
+console.log(`Loaded ${invoices.length} invoices`);
+```
+
+## Example with Error Handling
+
+```typescript
+import { getXMLFromLocalFile } from './services/signing';
+
+function safeLoadXML(path: string): string | null {
+  try {
+    const xml = getXMLFromLocalFile(path);
+    return xml;
+  } catch (error) {
+    console.error(`Failed to load XML from ${path}:`, error);
+    return null;
+  }
+}
+```
+
+## Related Functions
+
+- [`getXMLFromLocalUrl()`](/api/get-xml-from-url) - Download XML from a URL
+- [`signXml()`](/api/sign-xml) - Sign the loaded XML document
+
+Source: `src/services/signing.ts:21`

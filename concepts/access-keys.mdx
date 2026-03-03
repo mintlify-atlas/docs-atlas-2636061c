@@ -1,0 +1,258 @@
+---
+title: "Access Keys"
+description: "Understanding how access keys (claveAcceso) are generated for electronic invoices in Ecuador"
+---
+
+## What is an Access Key?
+
+The access key (clave de acceso) is a unique 49-digit numeric identifier required for all electronic documents submitted to Ecuador's SRI. It serves as a unique fingerprint for each invoice and is used throughout the authorization process.
+
+<Info>
+  Open Factura automatically generates valid access keys when you use the `generateInvoice()` function.
+</Info>
+
+## Access Key Structure
+
+The access key is composed of 49 digits organized in the following segments:
+
+| Segment | Length | Description | Example |
+|---------|--------|-------------|----------|
+| Date | 8 digits | Emission date (DDMMYYYY) | `01122024` |
+| Document Type | 2 digits | Type of document | `01` |
+| RUC | 13 digits | Tax identification number | `1234567890001` |
+| Environment | 1 digit | Testing (1) or Production (2) | `1` |
+| Establishment | 3 digits | Establishment code | `001` |
+| Emission Point | 3 digits | Point of emission | `001` |
+| Sequential | 9 digits | Sequential document number | `000000001` |
+| Numeric Code | 8 digits | Random verification code | `12345678` |
+| Emission Type | 1 digit | Emission type (always 1) | `1` |
+| Verification Digit | 1 digit | Modulo 11 checksum | `7` |
+
+**Total: 49 digits**
+
+## Generation Process
+
+Open Factura generates access keys using the `generateAccessKey()` function defined in `src/utils/utils.ts:21`.
+
+### Input Parameters
+
+```typescript
+export type GenerateAccessKey = {
+  date: Date;
+  codDoc: "01" | "03" | "04" | "05" | "06" | "07";
+  ruc: string;
+  environment: "1" | "2";
+  establishment: string;
+  emissionPoint: string;
+  sequential: string;
+};
+```
+
+### Generation Steps
+
+The access key is generated following these steps:
+
+#### 1. Format the Date
+
+Convert the emission date to DDMMYYYY format:
+
+```typescript
+function formatDateToDDMMYYYY(date: Date) {
+  let day = date.getDate();
+  let month = date.getMonth() + 1; // getMonth() returns 0-11
+  let year = date.getFullYear();
+
+  // Pad day and month with a leading zero if they are less than 10
+  const finalDay = day < 10 ? "0" + day : day;
+  const finalMonth = month < 10 ? "0" + month : month;
+
+  return `${finalDay}${finalMonth}${year}`;
+}
+```
+
+#### 2. Concatenate Base Components
+
+The first 41 digits are built by concatenating:
+
+```typescript
+let accessKey = "";
+accessKey += formatDateToDDMMYYYY(accessKeyData.date); // 8 digits
+accessKey += accessKeyData.codDoc; // 2 digits
+accessKey += accessKeyData.ruc; // 13 digits
+accessKey += accessKeyData.environment; // 1 digit
+accessKey += accessKeyData.establishment; // 3 digits
+accessKey += accessKeyData.emissionPoint; // 3 digits
+accessKey += accessKeyData.sequential; // 9 digits
+accessKey += generateRandomEightDigitNumber(); // 8 digits
+accessKey += "1"; // 1 digit (emission type)
+```
+
+#### 3. Generate Random Numeric Code
+
+An 8-digit random number is generated for additional uniqueness:
+
+```typescript
+function generateRandomEightDigitNumber(): number {
+  const min = 10000000;
+  const max = 99999999;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+```
+
+#### 4. Calculate Verification Digit
+
+The final digit is calculated using the Modulo 11 algorithm:
+
+```typescript
+function generateVerificatorDigit(accessKey: string) {
+  let result = 0;
+  let addition = 0;
+  let multiple = 7;
+  
+  // Multiply each digit by a factor from 7 to 2 (cycling)
+  for (let i = 0; i < accessKey.length; i++) {
+    addition += parseInt(accessKey.charAt(i)) * multiple;
+    multiple > 2 ? multiple-- : (multiple = 7);
+  }
+  
+  // Calculate modulo 11
+  result = 11 - (addition % 11);
+  
+  // Handle special cases
+  result === 10 ? (result = 1) : (result = result);
+  result === 11 ? (result = 0) : (result = result);
+  
+  return result;
+}
+```
+
+<Note>
+  The verification digit algorithm multiplies each digit by a factor cycling from 7 down to 2, calculates the sum modulo 11, and applies special rules for values of 10 and 11.
+</Note>
+
+## Complete Generation Function
+
+Here's the complete access key generation function from `src/utils/utils.ts:21`:
+
+```typescript
+export function generateAccessKey(accessKeyData: GenerateAccessKey) {
+  let accessKey = "";
+  accessKey += formatDateToDDMMYYYY(accessKeyData.date);
+  accessKey += accessKeyData.codDoc;
+  accessKey += accessKeyData.ruc;
+  accessKey += accessKeyData.environment;
+  accessKey += accessKeyData.establishment;
+  accessKey += accessKeyData.emissionPoint;
+  accessKey += accessKeyData.sequential;
+  accessKey += generateRandomEightDigitNumber();
+  accessKey += "1";
+  accessKey += generateVerificatorDigit(accessKey);
+  return accessKey;
+}
+```
+
+## Example
+
+Let's generate an access key for an invoice:
+
+**Input Data:**
+- Date: December 1, 2024
+- Document Type: 01 (Invoice)
+- RUC: 1234567890001
+- Environment: 1 (Testing)
+- Establishment: 001
+- Emission Point: 001
+- Sequential: 000000001
+- Random Code: 45678901 (generated)
+
+**Resulting Access Key:**
+```
+0112202401123456789000110010010000000014567890117
+```
+
+Breakdown:
+- `01122024` - Date (01/12/2024)
+- `01` - Invoice
+- `1234567890001` - RUC
+- `1` - Testing environment
+- `001` - Establishment
+- `001` - Emission point
+- `000000001` - Sequential
+- `45678901` - Random code
+- `1` - Emission type
+- `7` - Verification digit
+
+## Usage in Open Factura
+
+The `generateInvoice()` function automatically creates the access key:
+
+```typescript
+import { generateInvoice } from "open-factura";
+
+const { invoice, accessKey } = generateInvoice({
+  infoTributaria: {
+    ambiente: "1",
+    tipoEmision: "1",
+    ruc: "1234567890001",
+    codDoc: "01",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    // claveAcceso is NOT required - it's auto-generated
+    // ...
+  },
+  infoFactura: {
+    fechaEmision: "01/12/2024",
+    // ...
+  },
+  // ...
+});
+
+// Access key is returned and automatically included in invoice
+console.log(accessKey); // "0112202401123456789000110010010000000014567890117"
+console.log(invoice.factura.infoTributaria.claveAcceso); // Same value
+```
+
+<Warning>
+  The access key must be unique for each document. Never reuse access keys, even for corrected or modified invoices.
+</Warning>
+
+## Document Type Codes
+
+The `codDoc` parameter specifies the document type:
+
+- `01` - FACTURA (Invoice)
+- `03` - LIQUIDACIÓN DE COMPRA DE BIENES Y PRESTACIÓN DE SERVICIOS
+- `04` - NOTA DE CRÉDITO (Credit Note)
+- `05` - NOTA DE DÉBITO (Debit Note)
+- `06` - GUÍA DE REMISIÓN (Delivery Guide)
+- `07` - COMPROBANTE DE RETENCIÓN (Withholding Receipt)
+
+## Environment Types
+
+The environment code indicates where the document will be processed:
+
+- `1` - **Testing (Pruebas)**: Use for development and testing
+- `2` - **Production (Producción)**: Use for actual business operations
+
+<Info>
+  You must enable the testing or production environment in your SRI account before submitting documents. See the [SRI Endpoints](/concepts/sri-endpoints) documentation for activation instructions.
+</Info>
+
+## Best Practices
+
+1. **Sequential Control**: Maintain strict control over sequential numbers to avoid duplicates
+2. **Date Accuracy**: Always use the actual emission date - this cannot be changed later
+3. **Environment Matching**: Ensure the environment in the access key matches the SRI endpoint you're using
+4. **Storage**: Store the access key with your invoice records for future reference and authorization checks
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Invoice Structure" icon="file-invoice" href="/concepts/invoice-structure">
+    Learn about the complete invoice data structure
+  </Card>
+  <Card title="SRI Endpoints" icon="server" href="/concepts/sri-endpoints">
+    Configure endpoints for document submission
+  </Card>
+</CardGroup>

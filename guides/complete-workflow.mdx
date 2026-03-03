@@ -1,0 +1,617 @@
+---
+title: Complete Workflow
+description: End-to-end guide for generating, signing, submitting, and authorizing electronic invoices with SRI
+---
+
+This guide walks through the complete process of creating an electronic invoice in Ecuador, from generation to final authorization by SRI.
+
+## Workflow Overview
+
+The complete electronic invoicing process consists of 5 main steps:
+
+```mermaid
+graph LR
+    A[Generate Invoice] --> B[Convert to XML]
+    B --> C[Sign Document]
+    C --> D[Submit to SRI]
+    D --> E[Request Authorization]
+    E --> F[Store Results]
+```
+
+<Steps>
+  <Step title="Generate Invoice Data">
+    Create the invoice structure with all required information
+  </Step>
+  <Step title="Convert to XML">
+    Transform the invoice object into SRI-compliant XML format
+  </Step>
+  <Step title="Sign the Document">
+    Digitally sign the XML with your P12 certificate
+  </Step>
+  <Step title="Submit to Reception">
+    Send the signed document to SRI's reception endpoint
+  </Step>
+  <Step title="Request Authorization">
+    Obtain authorization from SRI for the document
+  </Step>
+</Steps>
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+<CardGroup cols={2}>
+  <Card title="Valid P12 Certificate" icon="certificate">
+    From Banco Central del Ecuador or Security Data
+  </Card>
+  <Card title="SRI Test Account" icon="user">
+    For testing in the pruebas environment
+  </Card>
+  <Card title="Environment Variables" icon="key">
+    Certificate path, password, and SRI URLs
+  </Card>
+  <Card title="Open Factura Installed" icon="box">
+    npm install open-factura
+  </Card>
+</CardGroup>
+
+## Environment Setup
+
+Create a `.env` file with your configuration:
+
+```bash
+# Certificate configuration
+CERTIFICATE_PATH=/path/to/certificate.p12
+CERTIFICATE_PASSWORD=your-secure-password
+
+# SRI endpoints - Testing environment
+SRI_RECEPTION_URL=https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+SRI_AUTHORIZATION_URL=https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+
+# Environment type
+NODE_ENV=development
+```
+
+<Warning>
+  Never commit your `.env` file to version control. Add it to `.gitignore`.
+</Warning>
+
+## Complete Implementation
+
+Here's a production-ready implementation of the complete workflow:
+
+```typescript
+import {
+  generateInvoice,
+  generateInvoiceXml,
+  signXml,
+  getP12FromLocalFile,
+  documentReception,
+  documentAuthorization,
+  InvoiceInput
+} from 'open-factura';
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+
+dotenv.config();
+
+interface InvoiceResult {
+  success: boolean;
+  accessKey?: string;
+  authorizationNumber?: string;
+  authorizationDate?: string;
+  authorizedXml?: string;
+  error?: string;
+  errors?: Array<{
+    id: string;
+    message: string;
+    detail: string;
+  }>;
+}
+
+/**
+ * Complete workflow: Generate, sign, submit, and authorize an invoice
+ */
+async function processInvoice(invoiceData: InvoiceInput): Promise<InvoiceResult> {
+  try {
+    console.log('📄 Step 1: Generating invoice...');
+    
+    // Step 1: Generate invoice and access key
+    const { invoice, accessKey } = generateInvoice(invoiceData);
+    console.log(`✓ Invoice generated with access key: ${accessKey}`);
+
+    console.log('\n🔄 Step 2: Converting to XML...');
+    
+    // Step 2: Convert to XML
+    const invoiceXml = generateInvoiceXml(invoice);
+    console.log('✓ XML generated successfully');
+
+    console.log('\n🔐 Step 3: Signing document...');
+    
+    // Step 3: Load certificate and sign
+    const p12Certificate = getP12FromLocalFile(
+      process.env.CERTIFICATE_PATH || './certificate.p12'
+    );
+    const signedXml = await signXml(
+      p12Certificate,
+      process.env.CERTIFICATE_PASSWORD || '',
+      invoiceXml
+    );
+    console.log('✓ Document signed successfully');
+
+    console.log('\n📤 Step 4: Submitting to SRI reception...');
+    
+    // Step 4: Submit to SRI reception
+    const receptionResult = await documentReception(
+      signedXml,
+      process.env.SRI_RECEPTION_URL || ''
+    );
+
+    const receptionStatus = receptionResult.RespuestaRecepcionComprobante.estado;
+    
+    if (receptionStatus === 'DEVUELTA') {
+      // Document was rejected
+      const mensajes = receptionResult.RespuestaRecepcionComprobante
+        .comprobantes?.comprobante?.mensajes?.mensaje || [];
+      
+      const errors = mensajes.map(m => ({
+        id: m.identificador,
+        message: m.mensaje,
+        detail: m.informacionAdicional
+      }));
+
+      console.error('✗ Document rejected by SRI');
+      return { success: false, accessKey, errors };
+    }
+
+    console.log('✓ Document received by SRI');
+
+    console.log('\n⏳ Step 5: Waiting for SRI processing...');
+    
+    // Step 5: Wait before requesting authorization
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    console.log('\n✅ Step 6: Requesting authorization...');
+    
+    // Step 6: Request authorization with retry logic
+    const authResult = await authorizeWithRetry(accessKey, 5, 2000);
+
+    if (authResult.success) {
+      console.log('✓ Document authorized!');
+      console.log(`   Authorization Number: ${authResult.numeroAutorizacion}`);
+      console.log(`   Authorization Date: ${authResult.fechaAutorizacion}`);
+
+      // Save authorized XML
+      const filename = `./authorized/${accessKey}.xml`;
+      if (!fs.existsSync('./authorized')) {
+        fs.mkdirSync('./authorized', { recursive: true });
+      }
+      fs.writeFileSync(filename, authResult.comprobante || '');
+      console.log(`   Saved to: ${filename}`);
+
+      return {
+        success: true,
+        accessKey,
+        authorizationNumber: authResult.numeroAutorizacion,
+        authorizationDate: authResult.fechaAutorizacion,
+        authorizedXml: authResult.comprobante
+      };
+    } else {
+      console.error('✗ Authorization failed');
+      return {
+        success: false,
+        accessKey,
+        errors: authResult.messages?.map(m => ({
+          id: m.identificador,
+          message: m.mensaje,
+          detail: m.informacionAdicional || ''
+        }))
+      };
+    }
+
+  } catch (error: any) {
+    console.error('✗ Process failed:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Retry authorization with exponential backoff
+ */
+async function authorizeWithRetry(
+  accessKey: string,
+  maxRetries = 5,
+  delayMs = 2000
+) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`   Attempt ${attempt}/${maxRetries}...`);
+
+    const result = await documentAuthorization(
+      accessKey,
+      process.env.SRI_AUTHORIZATION_URL || ''
+    );
+
+    const autorizacion = result.RespuestaAutorizacionComprobante
+      .autorizaciones.autorizacion[0];
+
+    if (autorizacion.estado === 'AUTORIZADO') {
+      return {
+        success: true,
+        numeroAutorizacion: autorizacion.numeroAutorizacion,
+        fechaAutorizacion: autorizacion.fechaAutorizacion,
+        comprobante: autorizacion.comprobante
+      };
+    }
+
+    if (autorizacion.estado === 'NO AUTORIZADO') {
+      return {
+        success: false,
+        messages: autorizacion.mensajes?.mensaje || []
+      };
+    }
+
+    // Still processing
+    if (attempt < maxRetries) {
+      console.log(`   Still processing, waiting ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error('Authorization timeout: Document still processing after max retries');
+}
+
+// Example invoice data
+const invoiceData: InvoiceInput = {
+  infoTributaria: {
+    ambiente: "1", // Testing
+    tipoEmision: "1",
+    razonSocial: "Mi Empresa S.A.",
+    nombreComercial: "Mi Tienda",
+    ruc: "1234567890001",
+    codDoc: "01",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    dirMatriz: "Av. Principal 123, Quito",
+  },
+  infoFactura: {
+    fechaEmision: "15/03/2026",
+    dirEstablecimiento: "Av. Principal 123, Quito",
+    obligadoContabilidad: "SI",
+    tipoIdentificacionComprador: "04",
+    razonSocialComprador: "Cliente ABC S.A.",
+    identificacionComprador: "0987654321001",
+    direccionComprador: "Calle Secundaria 456, Guayaquil",
+    totalSinImpuestos: "100.00",
+    totalDescuento: "0.00",
+    totalConImpuestos: {
+      totalImpuesto: [
+        {
+          codigo: "2", // IVA
+          codigoPorcentaje: "2", // 12%
+          baseImponible: "100.00",
+          tarifa: "12.00",
+          valor: "12.00",
+        },
+      ],
+    },
+    propina: "0.00",
+    importeTotal: "112.00",
+    moneda: "DOLAR",
+    pagos: {
+      pago: [
+        {
+          formaPago: "01", // Sin utilización del sistema financiero
+          total: "112.00",
+        },
+      ],
+    },
+  },
+  detalles: {
+    detalle: [
+      {
+        codigoPrincipal: "PROD001",
+        descripcion: "Producto de ejemplo",
+        cantidad: "1.000000",
+        precioUnitario: "100.000000",
+        descuento: "0.00",
+        precioTotalSinImpuesto: "100.00",
+        impuestos: {
+          impuesto: [
+            {
+              codigo: "2",
+              codigoPorcentaje: "2",
+              tarifa: "12.00",
+              baseImponible: "100.00",
+              valor: "12.00",
+            },
+          ],
+        },
+      },
+    ],
+  },
+};
+
+// Execute the workflow
+processInvoice(invoiceData)
+  .then(result => {
+    console.log('\n' + '='.repeat(50));
+    if (result.success) {
+      console.log('✓ INVOICE PROCESSED SUCCESSFULLY');
+      console.log('='.repeat(50));
+      console.log('Access Key:', result.accessKey);
+      console.log('Authorization Number:', result.authorizationNumber);
+      console.log('Authorization Date:', result.authorizationDate);
+    } else {
+      console.log('✗ INVOICE PROCESSING FAILED');
+      console.log('='.repeat(50));
+      if (result.errors) {
+        console.log('Errors:');
+        result.errors.forEach(err => {
+          console.log(`  - ${err.id}: ${err.message}`);
+          if (err.detail) console.log(`    ${err.detail}`);
+        });
+      } else if (result.error) {
+        console.log('Error:', result.error);
+      }
+    }
+  })
+  .catch(error => {
+    console.error('\n✗ FATAL ERROR:', error);
+    process.exit(1);
+  });
+```
+
+## Process Flow Diagram
+
+Here's a detailed breakdown of each step:
+
+<AccordionGroup>
+  <Accordion title="Step 1: Generate Invoice" icon="1">
+    **Function:** `generateInvoice()`
+
+    **Input:** InvoiceInput object with tax info, invoice details, and line items
+
+    **Output:** 
+    - Invoice object with complete structure
+    - 49-digit access key (claveAcceso)
+
+    **Duration:** < 1ms
+
+    See: [Generating Invoices Guide](/guides/generating-invoices)
+  </Accordion>
+
+  <Accordion title="Step 2: Convert to XML" icon="2">
+    **Function:** `generateInvoiceXml()`
+
+    **Input:** Invoice object from step 1
+
+    **Output:** XML string formatted for SRI
+
+    **Duration:** < 10ms
+
+    See: [Generating Invoices Guide](/guides/generating-invoices)
+  </Accordion>
+
+  <Accordion title="Step 3: Sign Document" icon="3">
+    **Function:** `signXml()`
+
+    **Input:** 
+    - P12 certificate (ArrayBuffer)
+    - Certificate password
+    - XML string from step 2
+
+    **Output:** Signed XML with embedded digital signature
+
+    **Duration:** ~100-500ms
+
+    **Validates:** Certificate expiration dates
+
+    See: [Signing Documents Guide](/guides/signing-documents)
+  </Accordion>
+
+  <Accordion title="Step 4: Submit to Reception" icon="4">
+    **Function:** `documentReception()`
+
+    **Input:**
+    - Signed XML from step 3
+    - SRI reception endpoint URL
+
+    **Output:** Reception response (RECIBIDA or DEVUELTA)
+
+    **Duration:** ~2-5 seconds
+
+    **Network:** SOAP request to SRI
+
+    See: [Submitting to SRI Guide](/guides/submitting-to-sri)
+  </Accordion>
+
+  <Accordion title="Step 5: Wait for Processing" icon="5">
+    **Action:** Sleep/delay
+
+    **Duration:** 2-3 seconds recommended
+
+    **Reason:** SRI needs time to process and authorize the document
+  </Accordion>
+
+  <Accordion title="Step 6: Request Authorization" icon="6">
+    **Function:** `documentAuthorization()`
+
+    **Input:**
+    - Access key from step 1
+    - SRI authorization endpoint URL
+
+    **Output:** Authorization response (AUTORIZADO, NO AUTORIZADO, or EN PROCESAMIENTO)
+
+    **Duration:** ~1-3 seconds per attempt
+
+    **Retry:** May need 3-5 attempts with delays
+
+    See: [Authorization Guide](/guides/authorization)
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling Strategy
+
+Implement comprehensive error handling at each step:
+
+```typescript
+interface ProcessError {
+  step: string;
+  code: string;
+  message: string;
+  detail?: string;
+  recoverable: boolean;
+}
+
+function handleError(error: any, step: string): ProcessError {
+  // Certificate errors
+  if (error.message === 'Expired certificate') {
+    return {
+      step,
+      code: 'CERT_EXPIRED',
+      message: 'Certificate has expired',
+      detail: 'Please renew your P12 certificate',
+      recoverable: false
+    };
+  }
+
+  // Network errors
+  if (error.code === 'ECONNREFUSED') {
+    return {
+      step,
+      code: 'NETWORK_ERROR',
+      message: 'Cannot connect to SRI',
+      detail: 'Check your internet connection and SRI endpoint URLs',
+      recoverable: true
+    };
+  }
+
+  // SRI rejection
+  if (error.estado === 'DEVUELTA') {
+    return {
+      step,
+      code: 'SRI_REJECTED',
+      message: 'Document rejected by SRI',
+      detail: 'Check validation errors in response',
+      recoverable: false
+    };
+  }
+
+  // Generic error
+  return {
+    step,
+    code: 'UNKNOWN_ERROR',
+    message: error.message || 'Unknown error occurred',
+    recoverable: false
+  };
+}
+```
+
+## Testing Checklist
+
+Before moving to production:
+
+- [ ] Test with valid certificate in testing environment
+- [ ] Test with expired certificate (should fail gracefully)
+- [ ] Test with invalid invoice data (should be rejected)
+- [ ] Test network timeout handling
+- [ ] Test authorization retry logic
+- [ ] Verify all XML files are stored correctly
+- [ ] Verify access keys are generated correctly
+- [ ] Test with different document types (credit notes, debit notes)
+- [ ] Load test with multiple concurrent invoices
+- [ ] Verify logging and monitoring is working
+
+## Production Deployment
+
+<Steps>
+  <Step title="Update environment variables">
+    Switch to production SRI endpoints and certificate
+
+    ```bash
+    SRI_RECEPTION_URL=https://celo.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+    SRI_AUTHORIZATION_URL=https://celo.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+    NODE_ENV=production
+    ```
+  </Step>
+
+  <Step title="Set up monitoring">
+    Monitor:
+    - Success/failure rates
+    - Response times from SRI
+    - Certificate expiration dates
+    - Error types and frequencies
+  </Step>
+
+  <Step title="Implement logging">
+    Log all steps for audit trail and debugging
+
+    ```typescript
+    logger.info('Invoice generated', { accessKey });
+    logger.info('Document signed', { accessKey });
+    logger.info('Submitted to SRI', { accessKey, status: receptionStatus });
+    logger.info('Authorization received', { accessKey, authNumber });
+    ```
+  </Step>
+
+  <Step title="Set up alerting">
+    Alert on:
+    - Certificate expiring soon (< 30 days)
+    - High error rates (> 5%)
+    - SRI endpoint unavailable
+    - Authorization timeouts
+  </Step>
+</Steps>
+
+## Performance Optimization
+
+### Parallel Processing
+
+Process multiple invoices in parallel:
+
+```typescript
+async function processBatchInvoices(invoices: InvoiceInput[]) {
+  const results = await Promise.all(
+    invoices.map(invoice => processInvoice(invoice))
+  );
+
+  const successful = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+
+  console.log(`Processed ${invoices.length} invoices: ${successful} successful, ${failed} failed`);
+  return results;
+}
+```
+
+### Caching Certificates
+
+Load certificate once and reuse:
+
+```typescript
+let cachedCertificate: ArrayBuffer | null = null;
+
+function getCertificate(): ArrayBuffer {
+  if (!cachedCertificate) {
+    cachedCertificate = getP12FromLocalFile(process.env.CERTIFICATE_PATH || '');
+  }
+  return cachedCertificate;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Invoice Generation" icon="file-invoice" href="/api/generate-invoice">
+    Generate invoice objects
+  </Card>
+  <Card title="Document Signing" icon="file-signature" href="/api/sign-xml">
+    Sign XML documents
+  </Card>
+  <Card title="Type Definitions" icon="code" href="/types/invoice">
+    Explore available types
+  </Card>
+</CardGroup>

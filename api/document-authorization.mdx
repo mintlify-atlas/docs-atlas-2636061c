@@ -1,0 +1,97 @@
+---
+title: Document Authorization
+description: Request authorization status for submitted documents from the SRI
+---
+
+## Overview
+
+The `documentAuthorization` function queries the SRI (Servicio de Rentas Internas) for the authorization status of a previously submitted document. This is the second step in the electronic invoicing process, performed after document reception.
+
+## Function Signature
+
+```typescript
+export async function documentAuthorization(
+  accesKey: string,
+  authorizationUrl: string
+)
+```
+
+## Parameters
+
+<ParamField path="accesKey" type="string" required>
+  The access key (clave de acceso) of the document to check authorization status. This is a unique identifier generated for each electronic document.
+</ParamField>
+
+<ParamField path="authorizationUrl" type="string" required>
+  The SRI SOAP endpoint URL for authorization queries. Use the testing or production URL depending on your environment.
+</ParamField>
+
+## SRI Endpoints
+
+### Testing Environment
+```
+https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```
+
+### Production Environment
+```
+https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```
+
+## Return Value
+
+<ResponseField name="result" type="object">
+  The response from the SRI's `autorizacionComprobante` SOAP method, containing the authorization status, authorized XML, and authorization details.
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { documentAuthorization } from './services/authorization';
+
+const accessKey = '0123456789012345678901234567890123456789012345678';
+const authorizationUrl = 'https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl';
+
+try {
+  const result = await documentAuthorization(accessKey, authorizationUrl);
+  console.log('Authorization result:', result);
+  
+  // Check authorization status
+  if (result.autorizaciones?.autorizacion?.[0]?.estado === 'AUTORIZADO') {
+    console.log('Document authorized successfully');
+  }
+} catch (error) {
+  console.error('Authorization query failed:', error);
+}
+```
+
+## Implementation Details
+
+The function performs the following steps:
+
+1. Constructs a SOAP request with the access key as `claveAccesoComprobante`
+2. Creates a SOAP client using the provided authorization URL
+3. Calls the `autorizacionComprobante` SOAP method
+4. Returns the authorization response containing status and details
+
+## Authorization States
+
+The SRI can return the following authorization states:
+
+- **AUTORIZADO**: Document successfully authorized
+- **NO AUTORIZADO**: Document rejected
+- **EN PROCESAMIENTO**: Document still being processed (query again later)
+
+## Error Handling
+
+The function will reject with an error if:
+- The SOAP client creation fails
+- The `autorizacionComprobante` call fails
+- Network connectivity issues occur
+- The access key is invalid or not found
+
+Always wrap calls in a try-catch block to handle potential errors.
+
+## Retry Logic
+
+If the authorization state is "EN PROCESAMIENTO", you should implement retry logic with appropriate delays (e.g., wait 5-10 seconds between attempts) until a final state is received.

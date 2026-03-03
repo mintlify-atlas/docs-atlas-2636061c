@@ -1,0 +1,246 @@
+---
+title: Generating Invoices
+description: Learn how to generate electronic invoices using generateInvoice and generateInvoiceXml functions
+---
+
+Open Factura provides two core functions for creating electronic invoices that comply with Ecuador's SRI requirements.
+
+## Overview
+
+The invoice generation process involves two steps:
+
+1. **Generate the invoice object** with `generateInvoice()` - Creates the complete invoice structure and calculates the access key
+2. **Convert to XML** with `generateInvoiceXml()` - Transforms the invoice object into XML format required by SRI
+
+## Generating an Invoice
+
+<Steps>
+  <Step title="Import the required functions">
+    ```typescript
+    import { generateInvoice, generateInvoiceXml } from 'open-factura';
+    ```
+  </Step>
+
+  <Step title="Prepare your invoice data">
+    Create an `InvoiceInput` object with all required tax, invoice, and detail information:
+
+    ```typescript
+    const invoiceData = {
+      infoTributaria: {
+        ambiente: "1", // 1 = Testing, 2 = Production
+        tipoEmision: "1",
+        razonSocial: "Mi Empresa S.A.",
+        nombreComercial: "Mi Empresa",
+        ruc: "1234567890001",
+        codDoc: "01", // 01 = Invoice
+        estab: "001", // Establishment code
+        ptoEmi: "001", // Emission point
+        secuencial: "000000001", // Sequential number
+        dirMatriz: "Av. Principal 123",
+      },
+      infoFactura: {
+        fechaEmision: "15/03/2026",
+        dirEstablecimiento: "Av. Principal 123",
+        obligadoContabilidad: "SI",
+        tipoIdentificacionComprador: "04",
+        razonSocialComprador: "Cliente ABC",
+        identificacionComprador: "0987654321001",
+        direccionComprador: "Calle Secundaria 456",
+        totalSinImpuestos: "100.00",
+        totalDescuento: "0.00",
+        totalConImpuestos: {
+          totalImpuesto: [
+            {
+              codigo: "2", // IVA
+              codigoPorcentaje: "2", // 12%
+              baseImponible: "100.00",
+              tarifa: "12.00",
+              valor: "12.00",
+            },
+          ],
+        },
+        propina: "0.00",
+        importeTotal: "112.00",
+        moneda: "DOLAR",
+        pagos: {
+          pago: [
+            {
+              formaPago: "01", // Cash
+              total: "112.00",
+            },
+          ],
+        },
+      },
+      detalles: {
+        detalle: [
+          {
+            codigoPrincipal: "PROD001",
+            descripcion: "Product Description",
+            cantidad: "1.000000",
+            precioUnitario: "100.000000",
+            descuento: "0.00",
+            precioTotalSinImpuesto: "100.00",
+            impuestos: {
+              impuesto: [
+                {
+                  codigo: "2",
+                  codigoPorcentaje: "2",
+                  tarifa: "12.00",
+                  baseImponible: "100.00",
+                  valor: "12.00",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    ```
+
+    <Note>
+      The `claveAcceso` (access key) is automatically generated based on the invoice data. You don't need to provide it manually.
+    </Note>
+  </Step>
+
+  <Step title="Generate the invoice object">
+    Call `generateInvoice()` to create the invoice structure and access key:
+
+    ```typescript
+    const { invoice, accessKey } = generateInvoice(invoiceData);
+    
+    console.log('Access Key:', accessKey);
+    // Access Key: 1503202601123456789000110010010000000011234567891
+    ```
+
+    The function returns:
+    - `invoice`: Complete invoice object with XML structure
+    - `accessKey`: 49-digit unique identifier for the invoice
+  </Step>
+
+  <Step title="Convert to XML format">
+    Transform the invoice object into XML string required by SRI:
+
+    ```typescript
+    const invoiceXml = generateInvoiceXml(invoice);
+    
+    console.log(invoiceXml);
+    // <?xml version="1.0" encoding="UTF-8"?>
+    // <factura id="comprobante" version="1.0.0">
+    //   <infoTributaria>
+    //     ...
+    //   </infoTributaria>
+    //   ...
+    // </factura>
+    ```
+
+    The XML is formatted with pretty printing for readability.
+  </Step>
+</Steps>
+
+## Access Key Generation
+
+The access key is automatically generated using the following components:
+
+| Component | Description | Source |
+|-----------|-------------|--------|
+| Date | Emission date (DDMMYYYY) | `infoFactura.fechaEmision` |
+| Document Code | Type of document (01 for invoice) | `infoTributaria.codDoc` |
+| RUC | Tax identification number | `infoTributaria.ruc` |
+| Environment | Testing (1) or Production (2) | `infoTributaria.ambiente` |
+| Establishment | Establishment code | `infoTributaria.estab` |
+| Emission Point | Point of emission | `infoTributaria.ptoEmi` |
+| Sequential | Sequential number | `infoTributaria.secuencial` |
+| Numeric Code | Random 8-digit number | Auto-generated |
+| Emission Type | Always "1" | Fixed |
+| Verification Digit | Modulus 11 checksum | Calculated |
+
+## Complete Example
+
+Here's a minimal working example:
+
+```typescript
+import { generateInvoice, generateInvoiceXml } from 'open-factura';
+
+const { invoice, accessKey } = generateInvoice({
+  infoTributaria: {
+    ambiente: "1",
+    tipoEmision: "1",
+    razonSocial: "My Company",
+    nombreComercial: "My Store",
+    ruc: "1234567890001",
+    codDoc: "01",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000001",
+    dirMatriz: "Main Street 123",
+  },
+  infoFactura: {
+    fechaEmision: "15/03/2026",
+    dirEstablecimiento: "Main Street 123",
+    obligadoContabilidad: "SI",
+    tipoIdentificacionComprador: "04",
+    razonSocialComprador: "Customer Name",
+    identificacionComprador: "0987654321001",
+    direccionComprador: "Customer Address",
+    totalSinImpuestos: "100.00",
+    totalDescuento: "0.00",
+    totalConImpuestos: {
+      totalImpuesto: [{
+        codigo: "2",
+        codigoPorcentaje: "2",
+        baseImponible: "100.00",
+        tarifa: "12.00",
+        valor: "12.00",
+      }],
+    },
+    importeTotal: "112.00",
+    moneda: "DOLAR",
+    pagos: {
+      pago: [{ formaPago: "01", total: "112.00" }],
+    },
+  },
+  detalles: {
+    detalle: [{
+      codigoPrincipal: "PROD001",
+      descripcion: "Product Name",
+      cantidad: "1.000000",
+      precioUnitario: "100.000000",
+      descuento: "0.00",
+      precioTotalSinImpuesto: "100.00",
+      impuestos: {
+        impuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          tarifa: "12.00",
+          baseImponible: "100.00",
+          valor: "12.00",
+        }],
+      },
+    }],
+  },
+});
+
+const invoiceXml = generateInvoiceXml(invoice);
+
+console.log('Generated access key:', accessKey);
+console.log('XML ready for signing:', invoiceXml.substring(0, 100) + '...');
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Sign the Document" icon="file-signature" href="/guides/signing-documents">
+    Learn how to digitally sign the XML with your P12 certificate
+  </Card>
+  <Card title="Submit to SRI" icon="paper-plane" href="/guides/submitting-to-sri">
+    Submit the signed document to SRI's reception endpoint
+  </Card>
+</CardGroup>
+
+## API Reference
+
+For detailed type information and all available fields:
+
+<Card title="Invoice Types" icon="code" href="/types/invoice">
+  View complete type definitions for InvoiceInput and Invoice
+</Card>

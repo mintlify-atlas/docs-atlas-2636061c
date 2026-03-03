@@ -1,0 +1,97 @@
+---
+title: "signXml"
+description: "Sign XML documents with digital certificates for electronic invoicing"
+---
+
+## Function Signature
+
+```typescript
+async function signXml(
+  p12Data: ArrayBuffer,
+  p12Password: string,
+  xmlData: string
+): Promise<string>
+```
+
+## Description
+
+Signs an XML document using a digital certificate in PKCS#12 format. This function implements XAdES-BES (XML Advanced Electronic Signatures - Basic Electronic Signature) standard, which is required for electronic invoicing in Ecuador.
+
+The function supports certificates from:
+- **Security Data** - Costa Rican certificate authority
+- **Banco Central del Ecuador** - Ecuador's central bank
+
+## Parameters
+
+<ParamField path="p12Data" type="ArrayBuffer" required>
+  The PKCS#12 certificate file data as an ArrayBuffer. Use `getP12FromLocalFile()` or `getP12FromUrl()` to obtain this.
+</ParamField>
+
+<ParamField path="p12Password" type="string" required>
+  The password to decrypt the PKCS#12 certificate file.
+</ParamField>
+
+<ParamField path="xmlData" type="string" required>
+  The XML document to be signed as a string. Use `getXMLFromLocalFile()` or `getXMLFromLocalUrl()` to obtain this.
+</ParamField>
+
+## Returns
+
+<ResponseField name="signedXml" type="string">
+  The signed XML document with the digital signature appended at the end, before the closing root tag.
+</ResponseField>
+
+## Errors
+
+- Throws `"Expired certificate"` if the certificate's validity period has expired or not yet started
+- May throw parsing errors if the P12 file is corrupted or password is incorrect
+- May throw errors if the XML is malformed
+
+## Example Usage
+
+```typescript
+import { signXml, getP12FromLocalFile, getXMLFromLocalFile } from './services/signing';
+
+async function signInvoice() {
+  // Load certificate and XML
+  const p12Data = getP12FromLocalFile('./certificate.p12');
+  const xmlData = getXMLFromLocalFile('./invoice.xml');
+  const password = 'my-certificate-password';
+
+  try {
+    // Sign the document
+    const signedXml = await signXml(p12Data, password, xmlData);
+    
+    console.log('Document signed successfully');
+    return signedXml;
+  } catch (error) {
+    console.error('Signing failed:', error);
+    throw error;
+  }
+}
+```
+
+## Implementation Details
+
+The function performs the following operations:
+
+1. **Certificate Validation**: Checks that the certificate is within its validity period
+2. **XML Normalization**: Removes excess whitespace and formatting
+3. **Certificate Processing**: Extracts the appropriate signing key based on provider
+4. **Hash Generation**: Creates SHA-1 hashes of the XML content and certificate
+5. **Signature Creation**: Generates an RSA-SHA1 signature
+6. **XAdES-BES Construction**: Builds the complete signature structure with:
+   - SignedInfo with canonicalization method
+   - SignatureValue
+   - KeyInfo with X.509 certificate
+   - QualifyingProperties with signed properties
+
+## Certificate Provider Support
+
+### Security Data
+For certificates issued by Security Data, the function uses the first PKCS#8 shrouded key bag.
+
+### Banco Central del Ecuador
+For certificates issued by Banco Central, the function searches for the key with "Signing Key" in its friendly name attribute.
+
+Source: `src/services/signing.ts:62`

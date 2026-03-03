@@ -1,80 +1,318 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Create and submit your first electronic invoice to the SRI in minutes
 ---
 
-## Get started in three steps
+This guide will walk you through creating a complete electronic invoice, signing it, and submitting it to the SRI.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before starting, ensure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+- Open Factura [installed](/installation) in your project
+- A valid .p12 digital certificate from Security Data or Banco Central
+- SRI reception and authorization endpoint URLs
+- Your company's tax information (RUC, business name, etc.)
+
+## Step-by-step guide
+
+<Steps>
+  <Step title="Import required functions">
+    Start by importing the functions you'll need from Open Factura:
+
+    ```typescript
+    import {
+      generateInvoice,
+      generateInvoiceXml,
+      signXml,
+      getP12FromUrl,
+      getP12FromLocalFile,
+      documentReception,
+      documentAuthorization
+    } from "open-factura";
+    ```
+  </Step>
+
+  <Step title="Create invoice data">
+    Build your invoice data structure with type safety. Here's a basic example:
+
+    ```typescript
+    const { invoice, accessKey } = generateInvoice({
+      infoTributaria: {
+        ambiente: "1", // 1 = Testing, 2 = Production
+        tipoEmision: "1",
+        razonSocial: "Mi Empresa S.A.",
+        nombreComercial: "Mi Empresa",
+        ruc: "1234567890001",
+        codDoc: "01", // 01 = Invoice
+        estab: "001",
+        ptoEmi: "001",
+        secuencial: "000000001",
+        dirMatriz: "Av. Principal 123, Quito"
+      },
+      infoFactura: {
+        fechaEmision: "15/01/2024",
+        dirEstablecimiento: "Av. Principal 123, Quito",
+        obligadoContabilidad: "SI",
+        tipoIdentificacionComprador: "05", // 05 = RUC
+        razonSocialComprador: "Cliente ABC S.A.",
+        identificacionComprador: "0987654321001",
+        direccionComprador: "Calle Secundaria 456, Quito",
+        totalSinImpuestos: "100.00",
+        totalDescuento: "0.00",
+        totalConImpuestos: {
+          totalImpuesto: [
+            {
+              codigo: "2", // IVA
+              codigoPorcentaje: "2", // 12%
+              baseImponible: "100.00",
+              tarifa: "12.00",
+              valor: "12.00"
+            }
+          ]
+        },
+        importeTotal: "112.00",
+        moneda: "DOLAR",
+        pagos: {
+          pago: [
+            {
+              formaPago: "01", // Cash
+              total: "112.00"
+            }
+          ]
+        }
+      },
+      detalles: {
+        detalle: [
+          {
+            codigoPrincipal: "PROD-001",
+            descripcion: "Producto de ejemplo",
+            cantidad: "10.000000",
+            precioUnitario: "10.000000",
+            descuento: "0.00",
+            precioTotalSinImpuesto: "100.00",
+            impuestos: {
+              impuesto: [
+                {
+                  codigo: "2",
+                  codigoPorcentaje: "2",
+                  tarifa: "12.00",
+                  baseImponible: "100.00",
+                  valor: "12.00"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    });
+    ```
+
+    The `generateInvoice` function returns both the invoice object and the auto-generated access key.
+  </Step>
+
+  <Step title="Generate XML">
+    Convert the invoice to SRI-compliant XML format:
+
+    ```typescript
+    const invoiceXml = generateInvoiceXml(invoice);
+    ```
+  </Step>
+
+  <Step title="Load and sign with certificate">
+    Load your .p12 certificate and sign the XML document:
+
+    ```typescript
+    // Load from local file
+    const signature = getP12FromLocalFile("./certificates/my-cert.p12");
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    // Or load from URL
+    // const signature = await getP12FromUrl("https://example.com/cert.p12");
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    const password = process.env.CERT_PASSWORD || "your-password";
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    const signedInvoice = await signXml(signature, password, invoiceXml);
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <Note>
+      Open Factura supports certificates from both Security Data and Banco Central providers.
+    </Note>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Submit to SRI reception">
+    Send the signed document to the SRI reception endpoint:
 
-### Step 3: Go live
+    ```typescript
+    const receptionUrl = process.env.SRI_RECEPTION_URL!;
+    
+    const receptionResult = await documentReception(
+      signedInvoice,
+      receptionUrl
+    );
+    
+    console.log("Reception result:", receptionResult);
+    ```
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Get authorization">
+    Request authorization from the SRI using the access key:
+
+    ```typescript
+    const authorizationUrl = process.env.SRI_AUTHORIZATION_URL!;
+    
+    const authorizationResult = await documentAuthorization(
+      accessKey,
+      authorizationUrl
+    );
+    
+    console.log("Authorization result:", authorizationResult);
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's a full working example putting it all together:
+
+```typescript complete-example.ts
+import {
+  generateInvoice,
+  generateInvoiceXml,
+  signXml,
+  getP12FromLocalFile,
+  documentReception,
+  documentAuthorization
+} from "open-factura";
+
+async function createAndSubmitInvoice() {
+  // Generate invoice
+  const { invoice, accessKey } = generateInvoice({
+    infoTributaria: {
+      ambiente: "1",
+      tipoEmision: "1",
+      razonSocial: "Mi Empresa S.A.",
+      nombreComercial: "Mi Empresa",
+      ruc: "1234567890001",
+      codDoc: "01",
+      estab: "001",
+      ptoEmi: "001",
+      secuencial: "000000001",
+      dirMatriz: "Av. Principal 123, Quito"
+    },
+    infoFactura: {
+      fechaEmision: "15/01/2024",
+      dirEstablecimiento: "Av. Principal 123",
+      obligadoContabilidad: "SI",
+      tipoIdentificacionComprador: "05",
+      razonSocialComprador: "Cliente ABC S.A.",
+      identificacionComprador: "0987654321001",
+      direccionComprador: "Calle Secundaria 456",
+      totalSinImpuestos: "100.00",
+      totalDescuento: "0.00",
+      totalConImpuestos: {
+        totalImpuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          baseImponible: "100.00",
+          tarifa: "12.00",
+          valor: "12.00"
+        }]
+      },
+      importeTotal: "112.00",
+      moneda: "DOLAR",
+      pagos: {
+        pago: [{ formaPago: "01", total: "112.00" }]
+      }
+    },
+    detalles: {
+      detalle: [{
+        codigoPrincipal: "PROD-001",
+        descripcion: "Producto de ejemplo",
+        cantidad: "10.000000",
+        precioUnitario: "10.000000",
+        descuento: "0.00",
+        precioTotalSinImpuesto: "100.00",
+        impuestos: {
+          impuesto: [{
+            codigo: "2",
+            codigoPorcentaje: "2",
+            tarifa: "12.00",
+            baseImponible: "100.00",
+            valor: "12.00"
+          }]
+        }
+      }]
+    }
+  });
+
+  // Generate XML
+  const invoiceXml = generateInvoiceXml(invoice);
+
+  // Sign document
+  const signature = getP12FromLocalFile("./cert.p12");
+  const signedInvoice = await signXml(
+    signature,
+    process.env.CERT_PASSWORD!,
+    invoiceXml
+  );
+
+  // Submit to SRI
+  const receptionResult = await documentReception(
+    signedInvoice,
+    process.env.SRI_RECEPTION_URL!
+  );
+
+  // Get authorization
+  const authorizationResult = await documentAuthorization(
+    accessKey,
+    process.env.SRI_AUTHORIZATION_URL!
+  );
+
+  return {
+    accessKey,
+    reception: receptionResult,
+    authorization: authorizationResult
+  };
+}
+
+createAndSubmitInvoice()
+  .then(result => console.log("Invoice submitted:", result))
+  .catch(error => console.error("Error:", error));
+```
+
+## Environment variables
+
+Create a `.env` file with your configuration:
+
+```bash .env
+# Testing environment
+SRI_RECEPTION_URL=https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+SRI_AUTHORIZATION_URL=https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+
+# Certificate password
+CERT_PASSWORD=your-certificate-password
+```
+
+<Warning>
+Never commit your `.env` file or certificate passwords to version control. Use environment variables in production.
+</Warning>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Complete workflow" icon="diagram-project" href="/guides/complete-workflow">
+    See the end-to-end invoice workflow
+  </Card>
+  
+  <Card title="Type definitions" icon="code" href="/types/invoice">
+    Explore all available types
+  </Card>
+  
+  <Card title="Document signing" icon="file-signature" href="/guides/signing-documents">
+    Learn about digital signatures
+  </Card>
+  
+  <Card title="SRI integration" icon="server" href="/concepts/sri-endpoints">
+    Understand SRI endpoints
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

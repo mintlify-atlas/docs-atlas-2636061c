@@ -1,0 +1,465 @@
+---
+title: Authorization
+description: Learn how to authorize electronic documents with SRI and retrieve authorization details
+---
+
+After successfully submitting a document to SRI's reception endpoint, you must request authorization to complete the electronic invoicing process.
+
+## Overview
+
+The authorization process:
+
+1. Document is received by SRI (state: `RECIBIDA`)
+2. SRI processes and validates the document
+3. You request authorization using the access key
+4. SRI returns authorization status and details
+5. Store the authorization number and XML
+
+<Note>
+  There may be a delay between reception and authorization. SRI recommends waiting a few seconds before requesting authorization.
+</Note>
+
+## Authorization States
+
+SRI documents can have the following authorization states:
+
+| State | Description | Action Required |
+|-------|-------------|----------------|
+| `AUTORIZADO` | Document authorized successfully | Store authorization data |
+| `NO AUTORIZADO` | Document rejected | Review errors and create new document |
+| `EN PROCESAMIENTO` | Still processing | Wait and retry |
+
+## Requesting Authorization
+
+<Steps>
+  <Step title="Import the authorization function">
+    ```typescript
+    import { documentAuthorization } from 'open-factura';
+    ```
+  </Step>
+
+  <Step title="Wait for processing">
+    SRI needs time to process the document. Wait at least 2-3 seconds after reception:
+
+    ```typescript
+    // After successful reception
+    console.log('Waiting for SRI to process document...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    ```
+  </Step>
+
+  <Step title="Request authorization">
+    Call `documentAuthorization()` with the access key and authorization URL:
+
+    ```typescript
+    import * as dotenv from 'dotenv';
+    dotenv.config();
+
+    const authorizationResult = await documentAuthorization(
+      accessKey,
+      process.env.SRI_AUTHORIZATION_URL
+    );
+
+    console.log('Authorization result:', authorizationResult);
+    ```
+  </Step>
+
+  <Step title="Check authorization status">
+    Examine the response to determine if the document was authorized:
+
+    ```typescript
+    const autorizacion = authorizationResult.RespuestaAutorizacionComprobante
+      .autorizaciones.autorizacion[0];
+
+    if (autorizacion.estado === 'AUTORIZADO') {
+      console.log('✓ Document authorized!');
+      console.log('Authorization number:', autorizacion.numeroAutorizacion);
+      console.log('Authorization date:', autorizacion.fechaAutorizacion);
+    } else if (autorizacion.estado === 'NO AUTORIZADO') {
+      console.error('✗ Document not authorized');
+      console.error('Messages:', autorizacion.mensajes);
+    } else if (autorizacion.estado === 'EN PROCESAMIENTO') {
+      console.log('⟳ Still processing, retry in a few seconds');
+    }
+    ```
+  </Step>
+</Steps>
+
+## Response Structure
+
+The `documentAuthorization()` function returns a SOAP response:
+
+```typescript
+{
+  RespuestaAutorizacionComprobante: {
+    claveAccesoConsultada: string,
+    numeroComprobantes: string,
+    autorizaciones: {
+      autorizacion: [{
+        estado: 'AUTORIZADO' | 'NO AUTORIZADO' | 'EN PROCESAMIENTO',
+        numeroAutorizacion: string,
+        fechaAutorizacion: string, // ISO date string
+        ambiente: 'PRUEBAS' | 'PRODUCCION',
+        comprobante: string, // Full authorized XML with signature
+        mensajes?: {
+          mensaje: Array<{
+            identificador: string,
+            mensaje: string,
+            informacionAdicional: string,
+            tipo: 'ERROR' | 'ADVERTENCIA' | 'INFORMATIVO'
+          }>
+        }
+      }]
+    }
+  }
+}
+```
+
+### Successful Authorization
+
+```typescript
+{
+  RespuestaAutorizacionComprobante: {
+    claveAccesoConsultada: '1503202601123456789000110010010000000011234567891',
+    numeroComprobantes: '1',
+    autorizaciones: {
+      autorizacion: [{
+        estado: 'AUTORIZADO',
+        numeroAutorizacion: '1503202601123456789000110010010000000011234567891',
+        fechaAutorizacion: '2026-03-15T10:30:45.000-05:00',
+        ambiente: 'PRUEBAS',
+        comprobante: '<?xml version="1.0" encoding="UTF-8"?>\n<factura>...</factura>'
+      }]
+    }
+  }
+}
+```
+
+### Rejected Authorization
+
+```typescript
+{
+  RespuestaAutorizacionComprobante: {
+    claveAccesoConsultada: '1503202601123456789000110010010000000011234567891',
+    numeroComprobantes: '1',
+    autorizaciones: {
+      autorizacion: [{
+        estado: 'NO AUTORIZADO',
+        numeroAutorizacion: '',
+        fechaAutorizacion: '2026-03-15T10:30:45.000-05:00',
+        ambiente: 'PRUEBAS',
+        mensajes: {
+          mensaje: [{
+            identificador: 'AUTH001',
+            mensaje: 'CERTIFICADO INVALIDO',
+            informacionAdicional: 'El certificado ha expirado',
+            tipo: 'ERROR'
+          }]
+        }
+      }]
+    }
+  }
+}
+```
+
+## Implementing Retry Logic
+
+Documents may be in `EN PROCESAMIENTO` state initially. Implement retry logic:
+
+```typescript
+async function authorizeWithRetry(
+  accessKey: string,
+  maxRetries = 5,
+  delayMs = 2000
+) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`Authorization attempt ${attempt}/${maxRetries}`);
+
+    const result = await documentAuthorization(
+      accessKey,
+      process.env.SRI_AUTHORIZATION_URL
+    );
+
+    const autorizacion = result.RespuestaAutorizacionComprobante
+      .autorizaciones.autorizacion[0];
+
+    if (autorizacion.estado === 'AUTORIZADO') {
+      return {
+        success: true,
+        numeroAutorizacion: autorizacion.numeroAutorizacion,
+        fechaAutorizacion: autorizacion.fechaAutorizacion,
+        comprobante: autorizacion.comprobante
+      };
+    }
+
+    if (autorizacion.estado === 'NO AUTORIZADO') {
+      return {
+        success: false,
+        messages: autorizacion.mensajes?.mensaje || []
+      };
+    }
+
+    // Still processing, wait before retry
+    if (attempt < maxRetries) {
+      console.log(`Waiting ${delayMs}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error('Authorization timeout: Document still processing after max retries');
+}
+
+// Usage
+try {
+  const result = await authorizeWithRetry(accessKey);
+  if (result.success) {
+    console.log('Authorized:', result.numeroAutorizacion);
+  } else {
+    console.error('Not authorized:', result.messages);
+  }
+} catch (error) {
+  console.error('Authorization failed:', error.message);
+}
+```
+
+## Storing Authorization Data
+
+Once authorized, store the important data for your records:
+
+```typescript
+const autorizacion = authorizationResult.RespuestaAutorizacionComprobante
+  .autorizaciones.autorizacion[0];
+
+if (autorizacion.estado === 'AUTORIZADO') {
+  // Save to database
+  await db.invoices.update({
+    where: { accessKey },
+    data: {
+      authorizationNumber: autorizacion.numeroAutorizacion,
+      authorizationDate: new Date(autorizacion.fechaAutorizacion),
+      authorizedXml: autorizacion.comprobante,
+      status: 'AUTHORIZED',
+      environment: autorizacion.ambiente
+    }
+  });
+
+  // Optionally save XML to file
+  const fs = require('fs');
+  const filename = `invoice_${accessKey}_authorized.xml`;
+  fs.writeFileSync(filename, autorizacion.comprobante);
+
+  console.log(`✓ Authorization data saved for ${accessKey}`);
+}
+```
+
+## Complete Example
+
+```typescript
+import {
+  generateInvoice,
+  generateInvoiceXml,
+  signXml,
+  getP12FromLocalFile,
+  documentReception,
+  documentAuthorization
+} from 'open-factura';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function completeInvoiceProcess() {
+  // 1. Generate invoice
+  const { invoice, accessKey } = generateInvoice({
+    infoTributaria: {
+      ambiente: "1",
+      tipoEmision: "1",
+      razonSocial: "My Company",
+      nombreComercial: "My Store",
+      ruc: "1234567890001",
+      codDoc: "01",
+      estab: "001",
+      ptoEmi: "001",
+      secuencial: "000000001",
+      dirMatriz: "Main Street 123",
+    },
+    infoFactura: {
+      fechaEmision: "15/03/2026",
+      dirEstablecimiento: "Main Street 123",
+      obligadoContabilidad: "SI",
+      tipoIdentificacionComprador: "04",
+      razonSocialComprador: "Customer Name",
+      identificacionComprador: "0987654321001",
+      direccionComprador: "Customer Address",
+      totalSinImpuestos: "100.00",
+      totalDescuento: "0.00",
+      totalConImpuestos: {
+        totalImpuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          baseImponible: "100.00",
+          tarifa: "12.00",
+          valor: "12.00",
+        }],
+      },
+      importeTotal: "112.00",
+      moneda: "DOLAR",
+      pagos: {
+        pago: [{ formaPago: "01", total: "112.00" }],
+      },
+    },
+    detalles: {
+      detalle: [{
+        codigoPrincipal: "PROD001",
+        descripcion: "Product Name",
+        cantidad: "1.000000",
+        precioUnitario: "100.000000",
+        descuento: "0.00",
+        precioTotalSinImpuesto: "100.00",
+        impuestos: {
+          impuesto: [{
+            codigo: "2",
+            codigoPorcentaje: "2",
+            tarifa: "12.00",
+            baseImponible: "100.00",
+            valor: "12.00",
+          }],
+        },
+      }],
+    },
+  });
+
+  // 2. Convert to XML
+  const invoiceXml = generateInvoiceXml(invoice);
+
+  // 3. Sign
+  const p12Certificate = getP12FromLocalFile(process.env.CERTIFICATE_PATH);
+  const signedXml = await signXml(
+    p12Certificate,
+    process.env.CERTIFICATE_PASSWORD,
+    invoiceXml
+  );
+
+  // 4. Submit to reception
+  const receptionResult = await documentReception(
+    signedXml,
+    process.env.SRI_RECEPTION_URL
+  );
+
+  if (receptionResult.RespuestaRecepcionComprobante.estado !== 'RECIBIDA') {
+    throw new Error('Reception failed');
+  }
+
+  console.log('✓ Document received');
+
+  // 5. Wait for processing
+  console.log('Waiting for SRI to process...');
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // 6. Request authorization with retry
+  const authResult = await authorizeWithRetry(accessKey);
+
+  if (authResult.success) {
+    console.log('✓ Document authorized!');
+    console.log('Authorization Number:', authResult.numeroAutorizacion);
+    console.log('Authorization Date:', authResult.fechaAutorizacion);
+    return authResult;
+  } else {
+    console.error('✗ Authorization failed');
+    authResult.messages.forEach(msg => {
+      console.error(`${msg.identificador}: ${msg.mensaje}`);
+    });
+    throw new Error('Authorization failed');
+  }
+}
+
+// Helper function from previous example
+async function authorizeWithRetry(
+  accessKey: string,
+  maxRetries = 5,
+  delayMs = 2000
+) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = await documentAuthorization(
+      accessKey,
+      process.env.SRI_AUTHORIZATION_URL
+    );
+
+    const autorizacion = result.RespuestaAutorizacionComprobante
+      .autorizaciones.autorizacion[0];
+
+    if (autorizacion.estado === 'AUTORIZADO') {
+      return {
+        success: true,
+        numeroAutorizacion: autorizacion.numeroAutorizacion,
+        fechaAutorizacion: autorizacion.fechaAutorizacion,
+        comprobante: autorizacion.comprobante
+      };
+    }
+
+    if (autorizacion.estado === 'NO AUTORIZADO') {
+      return {
+        success: false,
+        messages: autorizacion.mensajes?.mensaje || []
+      };
+    }
+
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error('Authorization timeout');
+}
+
+completeInvoiceProcess()
+  .then(result => console.log('Process completed:', result))
+  .catch(error => console.error('Process failed:', error));
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always implement retry logic">
+    Authorization may take a few seconds. Always retry with appropriate delays.
+  </Accordion>
+
+  <Accordion title="Store the authorized XML">
+    The authorized XML from SRI is the legally valid document. Store it for your records.
+
+    ```typescript
+    // Save to database or file system
+    fs.writeFileSync(
+      `authorized/${accessKey}.xml`,
+      autorizacion.comprobante
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Handle all possible states">
+    Don't assume authorization will always succeed. Handle all states appropriately.
+  </Accordion>
+
+  <Accordion title="Log authorization attempts">
+    Keep logs of authorization attempts for debugging and auditing.
+
+    ```typescript
+    await db.authorizationLogs.create({
+      accessKey,
+      attempt: attemptNumber,
+      estado: autorizacion.estado,
+      timestamp: new Date()
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Complete Workflow" icon="diagram-project" href="/guides/complete-workflow">
+    See the full end-to-end process from generation to authorization
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/document-authorization">
+    View complete API documentation
+  </Card>
+</CardGroup>

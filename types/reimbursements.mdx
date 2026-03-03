@@ -1,0 +1,250 @@
+---
+title: Reimbursements Types
+description: Reimbursement information for expenses paid on behalf of third parties
+---
+
+## Overview
+
+The Reimbursements types are used when an invoice includes reimbursable expenses - costs that were paid on behalf of a client or third party and are being billed back.
+
+## Reimbursements
+
+Container for all reimbursement details.
+
+```typescript
+export type Reimbursements = {
+  reembolsoDetalle: ReimbursementDetail[];
+};
+```
+
+<ParamField path="reembolsoDetalle" type="ReimbursementDetail[]" required>
+  Array of reimbursement detail items
+</ParamField>
+
+## ReimbursementDetail
+
+Detailed information about a reimbursable expense.
+
+```typescript
+export type ReimbursementDetail = {
+  tipoIdentificacionProveedorReembolso: string;
+  identificacionProveedorReembolso: string;
+  codPaisPagoProveedorReembolso: string;
+  tipoProveedorReembolso: string;
+  codDocReembolso: string;
+  estabDocReembolso: string;
+  ptoEmiDocReembolso: string;
+  secuencialDocReembolso: string;
+  fechaEmisionDocReembolso: string;
+  numeroautorizacionDocReemb: string;
+  detalleImpuestos: TaxDetails;
+  compensacionesReembolso: ReimbursementCompensations;
+};
+```
+
+### Fields
+
+<ParamField path="tipoIdentificacionProveedorReembolso" type="string" required>
+  Provider identification type:
+  
+  - `"04"` - RUC
+  - `"05"` - Cédula (ID card)
+  - `"06"` - Pasaporte (Passport)
+  - `"07"` - Consumidor final (Final consumer)
+  - `"08"` - Identificación del exterior (Foreign ID)
+</ParamField>
+
+<ParamField path="identificacionProveedorReembolso" type="string" required>
+  Provider's identification number (RUC, ID, passport, etc.)
+</ParamField>
+
+<ParamField path="codPaisPagoProveedorReembolso" type="string" required>
+  Country code where payment was made (3 digits, e.g., `"593"` for Ecuador)
+</ParamField>
+
+<ParamField path="tipoProveedorReembolso" type="string" required>
+  Provider type code:
+  
+  - `"01"` - Natural person
+  - `"02"` - Legal entity
+</ParamField>
+
+<ParamField path="codDocReembolso" type="string" required>
+  Reimbursement document type code (e.g., `"01"` for invoice)
+</ParamField>
+
+<ParamField path="estabDocReembolso" type="string" required>
+  Establishment code from the reimbursement document (3 digits)
+</ParamField>
+
+<ParamField path="ptoEmiDocReembolso" type="string" required>
+  Emission point code from the reimbursement document (3 digits)
+</ParamField>
+
+<ParamField path="secuencialDocReembolso" type="string" required>
+  Sequential number from the reimbursement document (10 digits)
+</ParamField>
+
+<ParamField path="fechaEmisionDocReembolso" type="string" required>
+  Emission date of the reimbursement document in format `DD/MM/YYYY`
+</ParamField>
+
+<ParamField path="numeroautorizacionDocReemb" type="string" required>
+  Authorization number of the reimbursement document (10 digits)
+</ParamField>
+
+<ParamField path="detalleImpuestos" type="TaxDetails" required>
+  Tax details for the reimbursement. See [TaxDetails](#taxdetails)
+</ParamField>
+
+<ParamField path="compensacionesReembolso" type="ReimbursementCompensations" required>
+  Compensations applied to the reimbursement. See [ReimbursementCompensations](#reimbursementcompensations)
+</ParamField>
+
+## TaxDetail
+
+Tax information for a reimbursable expense.
+
+```typescript
+export type TaxDetail = {
+  codigo: string;
+  codigoPorcentaje: string;
+  tarifa: string;
+  baseImponibleReembolso: string;
+  impuestoReembolso: string;
+};
+```
+
+<ParamField path="codigo" type="string" required>
+  Tax code:
+  
+  - `"2"` - IVA (VAT)
+  - `"3"` - ICE (Special consumption tax)
+  - `"5"` - IRBPNR (Tax on non-renewable natural resources)
+</ParamField>
+
+<ParamField path="codigoPorcentaje" type="string" required>
+  Tax rate code:
+  
+  - `"0"` - 0% IVA
+  - `"2"` - 12% IVA
+  - `"3"` - 14% IVA
+  - `"6"` - No Objeto de Impuesto
+  - `"7"` - Exento de IVA
+  - `"8"` - IVA diferenciado
+</ParamField>
+
+<ParamField path="tarifa" type="string" required>
+  Tax rate percentage
+</ParamField>
+
+<ParamField path="baseImponibleReembolso" type="string" required>
+  Taxable base amount for the reimbursement
+</ParamField>
+
+<ParamField path="impuestoReembolso" type="string" required>
+  Tax amount for the reimbursement
+</ParamField>
+
+## TaxDetails
+
+Container for reimbursement tax details.
+
+```typescript
+export type TaxDetails = {
+  detalleImpuesto: TaxDetail[];
+};
+```
+
+<ParamField path="detalleImpuesto" type="TaxDetail[]" required>
+  Array of tax detail items for the reimbursement
+</ParamField>
+
+## ReimbursementCompensation
+
+Compensation/offset applied to a reimbursement.
+
+```typescript
+export type ReimbursementCompensation = {
+  codigo: string;
+  tarifa: string;
+  valor: string;
+};
+```
+
+<ParamField path="codigo" type="string" required>
+  Compensation code
+</ParamField>
+
+<ParamField path="tarifa" type="string" required>
+  Compensation rate
+</ParamField>
+
+<ParamField path="valor" type="string" required>
+  Compensation amount
+</ParamField>
+
+## ReimbursementCompensations
+
+Container for reimbursement compensations.
+
+```typescript
+export type ReimbursementCompensations = {
+  compensacionesReembolso: ReimbursementCompensation[];
+};
+```
+
+<ParamField path="compensacionesReembolso" type="ReimbursementCompensation[]" required>
+  Array of compensation items
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { Reimbursements } from 'open-factura';
+
+const reimbursements: Reimbursements = {
+  reembolsoDetalle: [
+    {
+      tipoIdentificacionProveedorReembolso: "04", // RUC
+      identificacionProveedorReembolso: "1234567890001",
+      codPaisPagoProveedorReembolso: "593", // Ecuador
+      tipoProveedorReembolso: "02", // Legal entity
+      codDocReembolso: "01", // Invoice
+      estabDocReembolso: "001",
+      ptoEmiDocReembolso: "001",
+      secuencialDocReembolso: "0000000123",
+      fechaEmisionDocReembolso: "01/03/2026",
+      numeroautorizacionDocReemb: "1234567890",
+      detalleImpuestos: {
+        detalleImpuesto: [
+          {
+            codigo: "2", // IVA
+            codigoPorcentaje: "2", // 12%
+            tarifa: "12",
+            baseImponibleReembolso: "100.00",
+            impuestoReembolso: "12.00"
+          }
+        ]
+      },
+      compensacionesReembolso: {
+        compensacionesReembolso: [
+          {
+            codigo: "1",
+            tarifa: "2",
+            valor: "2.00"
+          }
+        ]
+      }
+    }
+  ]
+};
+```
+
+## Notes
+
+- Reimbursements are used when you pay for something on behalf of your client and need to bill them back
+- Each reimbursement must reference the original document (invoice/receipt) from the provider
+- The reimbursement document number format is: `estab-ptoEmi-secuencial` (e.g., `001-001-0000000123`)
+- Tax details should match the taxes on the original provider document
+- Total reimbursement amounts should be included in the invoice's `totalComprobantesReembolso`, `totalBaseImponibleReembolso`, and `totalImpuestoReembolso` fields

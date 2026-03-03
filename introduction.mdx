@@ -1,0 +1,73 @@
+---
+title: Introduction to Open Factura
+description: Open source electronic invoicing library for Ecuador compatible with SRI technical specifications
+---
+
+<img className="block" src="https://github.com/miguelangarano/open-factura/assets/26367577/75a941b0-dace-4047-91e4-6d0d433dfd39" alt="Open Factura - Electronic invoicing for Ecuador" />
+
+## What is Open Factura?
+
+Open Factura is an open source electronic invoicing library for Ecuador that is fully compatible with the technical specifications for electronic documents issued by the SRI (Servicio de Rentas Internas).
+
+Published as an [npm library](https://www.npmjs.com/package/open-factura), you can use it by simply installing it as a dependency in your Node.js or Bun project.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="TypeScript support" icon="code">
+    Fully typed fields for electronic invoices according to SRI specifications, providing type safety and IDE autocomplete.
+  </Card>
+  
+  <Card title="Invoice generation" icon="file-invoice">
+    Generate electronic invoices in both JSON and XML formats that comply with SRI technical requirements.
+  </Card>
+  
+  <Card title="Digital signature" icon="signature">
+    Sign XML documents with .p12 certificates, compatible with Security Data and Banco Central providers.
+  </Card>
+  
+  <Card title="SRI integration" icon="cloud">
+    Send documents to SRI reception endpoints and authorize them directly through their web services.
+  </Card>
+  
+  <Card title="Flexible loading" icon="upload">
+    Load digital signatures and XML files from local file system or remote URLs for maximum flexibility.
+  </Card>
+  
+  <Card title="Access key generation" icon="key">
+    Automatic generation of access keys (clave de acceso) for electronic documents according to SRI standards.
+  </Card>
+</CardGroup>
+
+## How it works
+
+Open Factura provides a complete workflow for electronic invoicing in Ecuador:
+
+1. **Create invoice data** - Use TypeScript types to build compliant invoice data structures
+2. **Generate XML** - Convert your invoice data to SRI-compliant XML format
+3. **Sign document** - Apply digital signatures using your .p12 certificate
+4. **Submit to SRI** - Send to reception endpoints and obtain authorization
+
+## SRI environments
+
+The library supports both testing and production environments:
+
+<CodeGroup>
+```bash Production
+SRI_RECEPTION_URL="https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
+SRI_AUTHORIZATION_URL="https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl"
+```
+
+```bash Testing
+SRI_RECEPTION_URL="https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
+SRI_AUTHORIZATION_URL="https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl"
+```
+</CodeGroup>
+
+<Note>
+To use these endpoints with your RUC, you must activate the testing/production environment in your SRI account. [Learn how to enable the production environment](https://www.factureromovil.com/pasos-para-habilitar-el-ambiente-de-produccion-en-sri).
+</Note>
+
+## Ready to get started?
+
+Follow our [installation guide](/installation) to add Open Factura to your project, or jump straight to the [quickstart tutorial](/quickstart) to create your first invoice.

@@ -1,0 +1,72 @@
+---
+title: "getP12FromLocalFile"
+description: "Load a PKCS#12 certificate file from the local filesystem"
+---
+
+## Function Signature
+
+```typescript
+function getP12FromLocalFile(path: string): ArrayBuffer
+```
+
+## Description
+
+Reads a PKCS#12 certificate file (.p12 or .pfx) from the local filesystem and returns it as an ArrayBuffer suitable for use with the `signXml()` function.
+
+PKCS#12 files contain both the private key and certificate chain needed for digital signatures. These files are typically password-protected.
+
+## Parameters
+
+<ParamField path="path" type="string" required>
+  The file system path to the PKCS#12 certificate file. Can be relative or absolute.
+</ParamField>
+
+## Returns
+
+<ResponseField name="arrayBuffer" type="ArrayBuffer">
+  The certificate file data as an ArrayBuffer, ready to be passed to `signXml()`.
+</ResponseField>
+
+## Errors
+
+- Throws file system errors if the file doesn't exist or cannot be read
+- May throw permission errors if the process lacks read access to the file
+
+## Example Usage
+
+```typescript
+import { getP12FromLocalFile, signXml, getXMLFromLocalFile } from './services/signing';
+
+async function signDocument() {
+  // Load certificate from local file
+  const p12Data = getP12FromLocalFile('./certificates/my-cert.p12');
+  const xmlData = getXMLFromLocalFile('./invoice.xml');
+  
+  // Sign the XML
+  const signedXml = await signXml(
+    p12Data,
+    'certificate-password',
+    xmlData
+  );
+  
+  return signedXml;
+}
+```
+
+## Example with Absolute Path
+
+```typescript
+import { getP12FromLocalFile } from './services/signing';
+import { join } from 'path';
+
+// Using absolute path
+const certPath = join(process.cwd(), 'certs', 'security-data.p12');
+const p12Data = getP12FromLocalFile(certPath);
+```
+
+## Related Functions
+
+- [`getP12FromUrl()`](/api/get-p12-from-url) - Load certificate from a URL
+- [`signXml()`](/api/sign-xml) - Sign XML documents with the loaded certificate
+
+Source: `src/services/signing.ts:5`

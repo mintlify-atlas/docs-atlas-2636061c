@@ -1,0 +1,83 @@
+---
+title: Document Reception
+description: Submit XML documents to the SRI for validation and reception
+---
+
+## Overview
+
+The `documentReception` function submits XML documents to the SRI (Servicio de Rentas Internas) for validation and reception. This is the first step in the electronic invoicing process.
+
+## Function Signature
+
+```typescript
+export async function documentReception(
+  stringXML: string,
+  receptionUrl: string
+): Promise<any>
+```
+
+## Parameters
+
+<ParamField path="stringXML" type="string" required>
+  The XML document as a string. This will be automatically converted to base64 encoding before being sent to the SRI.
+</ParamField>
+
+<ParamField path="receptionUrl" type="string" required>
+  The SRI SOAP endpoint URL for document reception. Use the testing or production URL depending on your environment.
+</ParamField>
+
+## SRI Endpoints
+
+### Testing Environment
+```
+https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+```
+
+### Production Environment
+```
+https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+```
+
+## Return Value
+
+<ResponseField name="result" type="object">
+  The response from the SRI's `validarComprobante` SOAP method, containing validation results and reception status.
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { documentReception } from './services/reception';
+
+const xmlDocument = `<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="1.0.0">
+  <!-- Your invoice XML content -->
+</factura>`;
+
+const receptionUrl = 'https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl';
+
+try {
+  const result = await documentReception(xmlDocument, receptionUrl);
+  console.log('Reception result:', result);
+} catch (error) {
+  console.error('Reception failed:', error);
+}
+```
+
+## Implementation Details
+
+The function performs the following steps:
+
+1. Converts the XML string to base64 encoding
+2. Creates a SOAP client using the provided reception URL
+3. Calls the `validarComprobante` SOAP method with the encoded XML
+4. Returns the validation and reception result
+
+## Error Handling
+
+The function will reject with an error if:
+- The SOAP client creation fails
+- The `validarComprobante` call fails
+- Network connectivity issues occur
+
+Always wrap calls in a try-catch block to handle potential errors.

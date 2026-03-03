@@ -1,0 +1,76 @@
+---
+title: Installation
+description: Install Open Factura in your Node.js or Bun project using your preferred package manager
+---
+
+## Install the package
+
+Open Factura is available on npm and can be installed using any JavaScript package manager:
+
+<CodeGroup>
+```bash npm
+npm install open-factura
+```
+
+```bash yarn
+yarn add open-factura
+```
+
+```bash pnpm
+pnpm add open-factura
+```
+
+```bash bun
+bun add open-factura
+```
+</CodeGroup>
+
+## Requirements
+
+Open Factura requires the following:
+
+- **Node.js** 14.x or higher, or **Bun** runtime
+- **TypeScript** 5.0.0 or higher (peer dependency)
+
+## Dependencies
+
+The library includes the following dependencies that are installed automatically:
+
+- `@peculiar/webcrypto` - Cryptographic operations
+- `node-forge` - Certificate handling and signing
+- `xadesjs` - XAdES signature format support
+- `xmlbuilder2` - XML generation
+- `soap` - SOAP client for SRI web services
+- `node-fetch` - HTTP requests
+
+## TypeScript configuration
+
+If you're using TypeScript, make sure your `tsconfig.json` includes:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node"
+  }
+}
+```
+
+## Verify installation
+
+Test that Open Factura is installed correctly by importing it in your project:
+
+```typescript
+import { generateInvoice } from "open-factura";
+
+console.log("Open Factura installed successfully!");
+```
+
+If you can import without errors, you're ready to start creating invoices.
+
+## Next steps
+
+Now that you have Open Factura installed, continue to the [quickstart guide](/quickstart) to create your first electronic invoice.

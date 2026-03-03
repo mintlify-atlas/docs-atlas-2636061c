@@ -1,0 +1,295 @@
+---
+title: Signing Documents
+description: Learn how to digitally sign XML documents with P12 certificates for SRI compliance
+---
+
+All electronic documents submitted to Ecuador's SRI must be digitally signed with a valid X.509 certificate. Open Factura provides utilities to sign XML documents using P12 certificate files.
+
+## Overview
+
+The signing process involves:
+
+1. Loading your P12 certificate file (from local file or URL)
+2. Signing the XML document with your certificate and password
+3. The result is a signed XML ready for SRI submission
+
+<Warning>
+  Keep your P12 certificate and password secure. Never commit them to version control or expose them in client-side code.
+</Warning>
+
+## Loading P12 Certificates
+
+<Steps>
+  <Step title="Import certificate utilities">
+    ```typescript
+    import { 
+      signXml, 
+      getP12FromLocalFile, 
+      getP12FromUrl 
+    } from 'open-factura';
+    ```
+  </Step>
+
+  <Step title="Load from local file">
+    Use `getP12FromLocalFile()` to load a certificate from your filesystem:
+
+    ```typescript
+    const p12Certificate = getP12FromLocalFile('./certificates/my-cert.p12');
+    ```
+
+    This returns an `ArrayBuffer` containing the certificate data.
+  </Step>
+
+  <Step title="Or load from URL">
+    Alternatively, load a certificate from a remote URL with `getP12FromUrl()`:
+
+    ```typescript
+    const p12Certificate = await getP12FromUrl(
+      'https://example.com/certificates/my-cert.p12'
+    );
+    ```
+
+    <Note>
+      Loading from URL is asynchronous and returns a Promise.
+    </Note>
+  </Step>
+</Steps>
+
+## Signing XML Documents
+
+<Steps>
+  <Step title="Prepare your inputs">
+    You need three things to sign a document:
+    - The P12 certificate (as ArrayBuffer)
+    - The certificate password
+    - The XML string to sign
+
+    ```typescript
+    import { generateInvoice, generateInvoiceXml, signXml, getP12FromLocalFile } from 'open-factura';
+
+    // Generate invoice XML
+    const { invoice } = generateInvoice(invoiceData);
+    const invoiceXml = generateInvoiceXml(invoice);
+
+    // Load certificate
+    const p12Certificate = getP12FromLocalFile('./cert.p12');
+    const password = process.env.CERTIFICATE_PASSWORD;
+    ```
+  </Step>
+
+  <Step title="Sign the document">
+    Call `signXml()` with your certificate, password, and XML:
+
+    ```typescript
+    const signedXml = await signXml(
+      p12Certificate,
+      password,
+      invoiceXml
+    );
+
+    console.log('Document signed successfully!');
+    ```
+
+    The function returns a signed XML string with the digital signature embedded.
+  </Step>
+
+  <Step title="Verify the signature structure">
+    The signed XML includes a `<ds:Signature>` element with:
+    - SignedInfo with digest values
+    - SignatureValue with the encrypted signature
+    - KeyInfo with the X509 certificate
+    - QualifyingProperties with signing metadata
+
+    ```xml
+    <factura id="comprobante" version="1.0.0">
+      <!-- Invoice data -->
+      <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" ...>
+        <ds:SignedInfo>
+          <!-- References and digest values -->
+        </ds:SignedInfo>
+        <ds:SignatureValue>...</ds:SignatureValue>
+        <ds:KeyInfo>
+          <ds:X509Data>
+            <ds:X509Certificate>...</ds:X509Certificate>
+          </ds:X509Data>
+        </ds:KeyInfo>
+        <ds:Object>
+          <etsi:QualifyingProperties>
+            <!-- Signing time, certificate info -->
+          </etsi:QualifyingProperties>
+        </ds:Object>
+      </ds:Signature>
+    </factura>
+    ```
+  </Step>
+</Steps>
+
+## Certificate Validation
+
+The `signXml()` function automatically validates your certificate:
+
+### Validity Period Check
+
+```typescript
+const notBefore = certificate.validity["notBefore"];
+const notAfter = certificate.validity["notAfter"];
+const date = new Date();
+
+if (date < notBefore || date > notAfter) {
+  throw new Error("Expired certificate");
+}
+```
+
+If your certificate is expired or not yet valid, an error will be thrown.
+
+<Warning>
+  Always ensure your certificate is valid before attempting to sign documents. SRI will reject documents signed with expired certificates.
+</Warning>
+
+## Supported Certificate Types
+
+Open Factura supports certificates from:
+
+- **Banco Central del Ecuador** - Looks for "BANCO CENTRAL" in the friendly name
+- **Security Data** - Looks for "SECURITY DATA" in the friendly name
+
+The library automatically detects the certificate type and extracts the appropriate private key.
+
+## Complete Example
+
+```typescript
+import { 
+  generateInvoice, 
+  generateInvoiceXml, 
+  signXml, 
+  getP12FromLocalFile 
+} from 'open-factura';
+
+async function createSignedInvoice() {
+  // Step 1: Generate invoice
+  const { invoice, accessKey } = generateInvoice({
+    infoTributaria: {
+      ambiente: "1",
+      tipoEmision: "1",
+      razonSocial: "My Company",
+      nombreComercial: "My Store",
+      ruc: "1234567890001",
+      codDoc: "01",
+      estab: "001",
+      ptoEmi: "001",
+      secuencial: "000000001",
+      dirMatriz: "Main Street 123",
+    },
+    infoFactura: {
+      fechaEmision: "15/03/2026",
+      dirEstablecimiento: "Main Street 123",
+      obligadoContabilidad: "SI",
+      tipoIdentificacionComprador: "04",
+      razonSocialComprador: "Customer Name",
+      identificacionComprador: "0987654321001",
+      direccionComprador: "Customer Address",
+      totalSinImpuestos: "100.00",
+      totalDescuento: "0.00",
+      totalConImpuestos: {
+        totalImpuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          baseImponible: "100.00",
+          tarifa: "12.00",
+          valor: "12.00",
+        }],
+      },
+      importeTotal: "112.00",
+      moneda: "DOLAR",
+      pagos: {
+        pago: [{ formaPago: "01", total: "112.00" }],
+      },
+    },
+    detalles: {
+      detalle: [{
+        codigoPrincipal: "PROD001",
+        descripcion: "Product Name",
+        cantidad: "1.000000",
+        precioUnitario: "100.000000",
+        descuento: "0.00",
+        precioTotalSinImpuesto: "100.00",
+        impuestos: {
+          impuesto: [{
+            codigo: "2",
+            codigoPorcentaje: "2",
+            tarifa: "12.00",
+            baseImponible: "100.00",
+            valor: "12.00",
+          }],
+        },
+      }],
+    },
+  });
+
+  // Step 2: Convert to XML
+  const invoiceXml = generateInvoiceXml(invoice);
+
+  // Step 3: Load certificate
+  const p12Certificate = getP12FromLocalFile('./certificates/certificate.p12');
+  const password = process.env.CERTIFICATE_PASSWORD || 'your-password';
+
+  // Step 4: Sign the document
+  const signedXml = await signXml(p12Certificate, password, invoiceXml);
+
+  console.log('Invoice signed successfully!');
+  console.log('Access Key:', accessKey);
+  console.log('Ready for SRI submission');
+
+  return { signedXml, accessKey };
+}
+
+createSignedInvoice();
+```
+
+## Environment Variables
+
+Store sensitive certificate information in environment variables:
+
+```bash
+# .env
+CERTIFICATE_PATH=/path/to/certificate.p12
+CERTIFICATE_PASSWORD=your-secure-password
+```
+
+```typescript
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+const p12Certificate = getP12FromLocalFile(process.env.CERTIFICATE_PATH);
+const password = process.env.CERTIFICATE_PASSWORD;
+
+const signedXml = await signXml(p12Certificate, password, invoiceXml);
+```
+
+## Error Handling
+
+Always wrap signing operations in try-catch blocks:
+
+```typescript
+try {
+  const signedXml = await signXml(p12Certificate, password, invoiceXml);
+  console.log('Signing successful');
+} catch (error) {
+  if (error.message === 'Expired certificate') {
+    console.error('Certificate has expired. Please renew your certificate.');
+  } else {
+    console.error('Signing failed:', error.message);
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Submit to SRI" icon="paper-plane" href="/guides/submitting-to-sri">
+    Send the signed document to SRI's reception endpoint
+  </Card>
+  <Card title="Authorize Documents" icon="check" href="/guides/authorization">
+    Check authorization status with SRI
+  </Card>
+</CardGroup>

@@ -1,0 +1,317 @@
+---
+title: "generateInvoiceXml"
+description: "Convert an invoice object to XML format for electronic invoicing"
+---
+
+## Function Signature
+
+```typescript
+function generateInvoiceXml(invoice: Invoice): string
+```
+
+## Description
+
+Converts a complete invoice object into an XML string representation. This function takes the structured invoice data and generates a properly formatted XML document that complies with Ecuadorian electronic invoicing standards.
+
+The generated XML is formatted with pretty printing for readability and includes all necessary namespaces and attributes required for electronic invoice processing.
+
+## Parameters
+
+<ParamField path="invoice" type="Invoice" required>
+  The complete invoice object to convert to XML. This is typically the invoice object returned by the `generateInvoice` function.
+
+  <Expandable title="Invoice structure">
+    <ParamField path="factura" type="object" required>
+      The root invoice object containing all invoice data.
+      
+      <Expandable title="Properties">
+        <ParamField path="@xmlns:ds" type="string" required>
+          XML namespace for digital signature. Should be `http://www.w3.org/2000/09/xmldsig#`
+        </ParamField>
+        
+        <ParamField path="@xmlns:xsi" type="string" required>
+          XML namespace for schema instance. Should be `http://www.w3.org/2001/XMLSchema-instance`
+        </ParamField>
+        
+        <ParamField path="@id" type="string" required>
+          Document identifier. Typically `comprobante`
+        </ParamField>
+        
+        <ParamField path="@version" type="string" required>
+          Document version. Should be `1.0.0`
+        </ParamField>
+        
+        <ParamField path="infoTributaria" type="TaxInfo" required>
+          Tax information including the access key (claveAcceso).
+          
+          <Expandable title="TaxInfo properties">
+            <ParamField path="ambiente" type="'1' | '2'" required>
+              Environment. `1` for testing, `2` for production.
+            </ParamField>
+            
+            <ParamField path="tipoEmision" type="string" required>
+              Emission type.
+            </ParamField>
+            
+            <ParamField path="razonSocial" type="string" required>
+              Business name.
+            </ParamField>
+            
+            <ParamField path="nombreComercial" type="string" required>
+              Commercial name.
+            </ParamField>
+            
+            <ParamField path="ruc" type="string" required>
+              RUC number.
+            </ParamField>
+            
+            <ParamField path="claveAcceso" type="string" required>
+              49-digit access key.
+            </ParamField>
+            
+            <ParamField path="codDoc" type="'01' | '03' | '04' | '05' | '06' | '07'" required>
+              Document code.
+            </ParamField>
+            
+            <ParamField path="estab" type="string" required>
+              Establishment code.
+            </ParamField>
+            
+            <ParamField path="ptoEmi" type="string" required>
+              Emission point.
+            </ParamField>
+            
+            <ParamField path="secuencial" type="string" required>
+              Sequential number.
+            </ParamField>
+            
+            <ParamField path="dirMatriz" type="string" required>
+              Main office address.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+        
+        <ParamField path="infoFactura" type="InvoiceInfo" required>
+          Invoice information including totals and buyer details.
+        </ParamField>
+        
+        <ParamField path="detalles" type="Details" required>
+          Invoice line items.
+        </ParamField>
+        
+        <ParamField path="reembolsos" type="Reimbursements">
+          Reimbursement information (optional).
+        </ParamField>
+        
+        <ParamField path="retenciones" type="Retentions">
+          Retention information (optional).
+        </ParamField>
+        
+        <ParamField path="infoSustitutivaGuiaRemision" type="RemisionGuideSustitutiveInfo">
+          Substitutive remission guide information (optional).
+        </ParamField>
+        
+        <ParamField path="otrosRubrosTerceros" type="OtherThirdPartyValues">
+          Other third-party values (optional).
+        </ParamField>
+        
+        <ParamField path="tipoNegociable" type="object">
+          Negotiable type information (optional).
+        </ParamField>
+        
+        <ParamField path="maquinaFiscal" type="object">
+          Fiscal machine information (optional).
+        </ParamField>
+        
+        <ParamField path="infoAdicional" type="AdditionalInfo">
+          Additional information (optional).
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="xml" type="string">
+  A formatted XML string representation of the invoice. The XML is pretty-printed with proper indentation and includes all necessary XML namespaces and attributes required for Ecuadorian electronic invoicing.
+</ResponseField>
+
+## Example
+
+```typescript
+import { generateInvoice, generateInvoiceXml } from 'open-factura';
+
+// First, generate the invoice object
+const invoiceData = {
+  infoTributaria: {
+    ambiente: '1',
+    tipoEmision: '1',
+    razonSocial: 'Mi Empresa S.A.',
+    nombreComercial: 'Mi Empresa',
+    ruc: '1234567890001',
+    codDoc: '01',
+    estab: '001',
+    ptoEmi: '001',
+    secuencial: '000000001',
+    dirMatriz: 'Av. Principal 123'
+  },
+  infoFactura: {
+    fechaEmision: '15/03/2026',
+    dirEstablecimiento: 'Av. Principal 123',
+    obligadoContabilidad: 'SI',
+    tipoIdentificacionComprador: '05',
+    razonSocialComprador: 'Juan Pérez',
+    identificacionComprador: '0987654321',
+    direccionComprador: 'Calle Secundaria 456',
+    totalSinImpuestos: '100.00',
+    totalDescuento: '0.00',
+    totalConImpuestos: {
+      totalImpuesto: [
+        {
+          codigo: '2',
+          codigoPorcentaje: '2',
+          descuentoAdicional: '0.00',
+          baseImponible: '100.00',
+          tarifa: '12',
+          valor: '12.00'
+        }
+      ]
+    },
+    importeTotal: '112.00',
+    moneda: 'DOLAR',
+    pagos: {
+      pago: [
+        {
+          formaPago: '01',
+          total: '112.00',
+          plazo: '0',
+          unidadTiempo: 'dias'
+        }
+      ]
+    }
+  },
+  detalles: {
+    detalle: [
+      {
+        codigoPrincipal: 'PROD001',
+        codigoAuxiliar: 'AUX001',
+        descripcion: 'Producto de ejemplo',
+        cantidad: '1.000000',
+        precioUnitario: '100.000000',
+        descuento: '0.00',
+        precioTotalSinImpuesto: '100.00',
+        impuestos: {
+          impuesto: [
+            {
+              codigo: '2',
+              codigoPorcentaje: '2',
+              tarifa: '12',
+              baseImponible: '100.00',
+              valor: '12.00'
+            }
+          ]
+        }
+      }
+    ]
+  }
+};
+
+const { invoice, accessKey } = generateInvoice(invoiceData);
+
+// Convert the invoice to XML
+const xml = generateInvoiceXml(invoice);
+
+console.log(xml);
+```
+
+### Example Output
+
+```xml
+<?xml version="1.0"?>
+<factura xmlns:ds="http://www.w3.org/2000/09/xmldsig#" 
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+         id="comprobante" 
+         version="1.0.0">
+  <infoTributaria>
+    <ambiente>1</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>Mi Empresa S.A.</razonSocial>
+    <nombreComercial>Mi Empresa</nombreComercial>
+    <ruc>1234567890001</ruc>
+    <claveAcceso>1503202601123456789000110010010000000011234567890</claveAcceso>
+    <codDoc>01</codDoc>
+    <estab>001</estab>
+    <ptoEmi>001</ptoEmi>
+    <secuencial>000000001</secuencial>
+    <dirMatriz>Av. Principal 123</dirMatriz>
+  </infoTributaria>
+  <infoFactura>
+    <fechaEmision>15/03/2026</fechaEmision>
+    <dirEstablecimiento>Av. Principal 123</dirEstablecimiento>
+    <obligadoContabilidad>SI</obligadoContabilidad>
+    <tipoIdentificacionComprador>05</tipoIdentificacionComprador>
+    <razonSocialComprador>Juan Pérez</razonSocialComprador>
+    <identificacionComprador>0987654321</identificacionComprador>
+    <direccionComprador>Calle Secundaria 456</direccionComprador>
+    <totalSinImpuestos>100.00</totalSinImpuestos>
+    <totalDescuento>0.00</totalDescuento>
+    <totalConImpuestos>
+      <totalImpuesto>
+        <codigo>2</codigo>
+        <codigoPorcentaje>2</codigoPorcentaje>
+        <descuentoAdicional>0.00</descuentoAdicional>
+        <baseImponible>100.00</baseImponible>
+        <tarifa>12</tarifa>
+        <valor>12.00</valor>
+      </totalImpuesto>
+    </totalConImpuestos>
+    <importeTotal>112.00</importeTotal>
+    <moneda>DOLAR</moneda>
+    <pagos>
+      <pago>
+        <formaPago>01</formaPago>
+        <total>112.00</total>
+        <plazo>0</plazo>
+        <unidadTiempo>dias</unidadTiempo>
+      </pago>
+    </pagos>
+  </infoFactura>
+  <detalles>
+    <detalle>
+      <codigoPrincipal>PROD001</codigoPrincipal>
+      <codigoAuxiliar>AUX001</codigoAuxiliar>
+      <descripcion>Producto de ejemplo</descripcion>
+      <cantidad>1.000000</cantidad>
+      <precioUnitario>100.000000</precioUnitario>
+      <descuento>0.00</descuento>
+      <precioTotalSinImpuesto>100.00</precioTotalSinImpuesto>
+      <impuestos>
+        <impuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>2</codigoPorcentaje>
+          <tarifa>12</tarifa>
+          <baseImponible>100.00</baseImponible>
+          <valor>12.00</valor>
+        </impuesto>
+      </impuestos>
+    </detalle>
+  </detalles>
+</factura>
+```
+
+## Typical Workflow
+
+1. Create invoice data using the `InvoiceInput` type
+2. Generate the invoice object with `generateInvoice()`
+3. Convert to XML using `generateInvoiceXml()`
+4. Sign the XML using `signXml()`
+5. Submit for reception using `documentReception()`
+6. Get authorization using `documentAuthorization()`
+
+## See Also
+
+- [generateInvoice](/api/generate-invoice) - Generate the invoice object
+- [signXml](/api/sign-xml) - Sign the generated XML
+- [documentReception](/api/document-reception) - Submit the invoice for reception
+- [documentAuthorization](/api/document-authorization) - Get authorization for the invoice

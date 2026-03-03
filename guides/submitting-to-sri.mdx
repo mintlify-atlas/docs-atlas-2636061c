@@ -1,0 +1,399 @@
+---
+title: Submitting to SRI
+description: Learn how to submit signed XML documents to SRI's reception endpoint for validation
+---
+
+After generating and signing your electronic document, you must submit it to Ecuador's SRI (Servicio de Rentas Internas) reception endpoint for validation.
+
+## Overview
+
+The submission process:
+
+1. Convert signed XML to Base64 encoding
+2. Send to SRI's SOAP web service endpoint
+3. Receive validation response
+4. Handle success or error states
+
+<Note>
+  SRI operates two environments: Testing (ambiente "1") and Production (ambiente "2"). Always test in the testing environment first.
+</Note>
+
+## SRI Endpoints
+
+SRI provides different endpoints for testing and production:
+
+### Testing Environment
+
+```bash
+# Reception endpoint
+https://celprospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+
+# Authorization endpoint
+https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```
+
+### Production Environment
+
+```bash
+# Reception endpoint
+https://celo.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+
+# Authorization endpoint
+https://celo.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```
+
+<Warning>
+  Production endpoints should only be used with valid, production-ready certificates and data. Test thoroughly in the testing environment first.
+</Warning>
+
+## Submitting Documents
+
+<Steps>
+  <Step title="Import the submission function">
+    ```typescript
+    import { documentReception } from 'open-factura';
+    ```
+  </Step>
+
+  <Step title="Set up environment variables">
+    Store your SRI endpoint URLs in environment variables:
+
+    ```bash
+    # .env
+    SRI_RECEPTION_URL=https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+    SRI_AUTHORIZATION_URL=https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+    ```
+  </Step>
+
+  <Step title="Submit the signed XML">
+    Call `documentReception()` with your signed XML and the reception URL:
+
+    ```typescript
+    import * as dotenv from 'dotenv';
+    dotenv.config();
+
+    const receptionResult = await documentReception(
+      signedXml,
+      process.env.SRI_RECEPTION_URL
+    );
+
+    console.log('Reception result:', receptionResult);
+    ```
+
+    The function automatically:
+    - Converts the XML to Base64
+    - Creates a SOAP client
+    - Calls the `validarComprobante` web service method
+    - Returns the validation result
+  </Step>
+
+  <Step title="Handle the response">
+    Check the response state to determine if submission was successful:
+
+    ```typescript
+    if (receptionResult.RespuestaRecepcionComprobante.estado === 'RECIBIDA') {
+      console.log('Document received successfully!');
+      console.log('Comprobante:', receptionResult.RespuestaRecepcionComprobante.comprobante);
+    } else {
+      console.error('Reception failed');
+      console.error('Messages:', receptionResult.RespuestaRecepcionComprobante.comprobantes?.comprobante?.mensajes);
+    }
+    ```
+  </Step>
+</Steps>
+
+## Response Structure
+
+The `documentReception()` function returns a SOAP response with this structure:
+
+```typescript
+{
+  RespuestaRecepcionComprobante: {
+    estado: 'RECIBIDA' | 'DEVUELTA',
+    comprobante: string, // Access key
+    comprobantes?: {
+      comprobante: {
+        claveAcceso: string,
+        mensajes?: {
+          mensaje: Array<{
+            identificador: string,
+            mensaje: string,
+            informacionAdicional: string,
+            tipo: 'ERROR' | 'ADVERTENCIA'
+          }>
+        }
+      }
+    }
+  }
+}
+```
+
+### Success Response
+
+```typescript
+{
+  RespuestaRecepcionComprobante: {
+    estado: 'RECIBIDA',
+    comprobante: '1503202601123456789000110010010000000011234567891'
+  }
+}
+```
+
+### Error Response
+
+```typescript
+{
+  RespuestaRecepcionComprobante: {
+    estado: 'DEVUELTA',
+    comprobantes: {
+      comprobante: {
+        claveAcceso: '1503202601123456789000110010010000000011234567891',
+        mensajes: {
+          mensaje: [
+            {
+              identificador: 'ERR001',
+              mensaje: 'Error en la estructura del comprobante',
+              informacionAdicional: 'Campo totalSinImpuestos no coincide',
+              tipo: 'ERROR'
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+## Common Response States
+
+| State | Description | Next Steps |
+|-------|-------------|------------|
+| `RECIBIDA` | Document received and validated | Proceed to authorization |
+| `DEVUELTA` | Document rejected due to errors | Fix errors and resubmit |
+
+## Error Handling
+
+Implement proper error handling for submission failures:
+
+```typescript
+async function submitToSRI(signedXml: string) {
+  try {
+    const receptionResult = await documentReception(
+      signedXml,
+      process.env.SRI_RECEPTION_URL
+    );
+
+    const { estado, comprobantes } = receptionResult.RespuestaRecepcionComprobante;
+
+    if (estado === 'RECIBIDA') {
+      console.log('✓ Document received successfully');
+      return { success: true, data: receptionResult };
+    } else {
+      // Extract error messages
+      const mensajes = comprobantes?.comprobante?.mensajes?.mensaje || [];
+      const errors = mensajes.map(m => ({
+        id: m.identificador,
+        message: m.mensaje,
+        detail: m.informacionAdicional,
+        type: m.tipo
+      }));
+
+      console.error('✗ Document rejected:', errors);
+      return { success: false, errors };
+    }
+  } catch (error) {
+    console.error('✗ Submission failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+const result = await submitToSRI(signedXml);
+if (!result.success) {
+  // Handle errors appropriately
+  if (result.errors) {
+    result.errors.forEach(err => {
+      console.error(`${err.id}: ${err.message} - ${err.detail}`);
+    });
+  }
+}
+```
+
+## Complete Example
+
+```typescript
+import {
+  generateInvoice,
+  generateInvoiceXml,
+  signXml,
+  getP12FromLocalFile,
+  documentReception
+} from 'open-factura';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function generateAndSubmitInvoice() {
+  // 1. Generate invoice
+  const { invoice, accessKey } = generateInvoice({
+    infoTributaria: {
+      ambiente: "1", // Testing environment
+      tipoEmision: "1",
+      razonSocial: "My Company",
+      nombreComercial: "My Store",
+      ruc: "1234567890001",
+      codDoc: "01",
+      estab: "001",
+      ptoEmi: "001",
+      secuencial: "000000001",
+      dirMatriz: "Main Street 123",
+    },
+    infoFactura: {
+      fechaEmision: "15/03/2026",
+      dirEstablecimiento: "Main Street 123",
+      obligadoContabilidad: "SI",
+      tipoIdentificacionComprador: "04",
+      razonSocialComprador: "Customer Name",
+      identificacionComprador: "0987654321001",
+      direccionComprador: "Customer Address",
+      totalSinImpuestos: "100.00",
+      totalDescuento: "0.00",
+      totalConImpuestos: {
+        totalImpuesto: [{
+          codigo: "2",
+          codigoPorcentaje: "2",
+          baseImponible: "100.00",
+          tarifa: "12.00",
+          valor: "12.00",
+        }],
+      },
+      importeTotal: "112.00",
+      moneda: "DOLAR",
+      pagos: {
+        pago: [{ formaPago: "01", total: "112.00" }],
+      },
+    },
+    detalles: {
+      detalle: [{
+        codigoPrincipal: "PROD001",
+        descripcion: "Product Name",
+        cantidad: "1.000000",
+        precioUnitario: "100.000000",
+        descuento: "0.00",
+        precioTotalSinImpuesto: "100.00",
+        impuestos: {
+          impuesto: [{
+            codigo: "2",
+            codigoPorcentaje: "2",
+            tarifa: "12.00",
+            baseImponible: "100.00",
+            valor: "12.00",
+          }],
+        },
+      }],
+    },
+  });
+
+  // 2. Convert to XML
+  const invoiceXml = generateInvoiceXml(invoice);
+
+  // 3. Sign the document
+  const p12Certificate = getP12FromLocalFile(process.env.CERTIFICATE_PATH);
+  const signedXml = await signXml(
+    p12Certificate,
+    process.env.CERTIFICATE_PASSWORD,
+    invoiceXml
+  );
+
+  // 4. Submit to SRI
+  const receptionResult = await documentReception(
+    signedXml,
+    process.env.SRI_RECEPTION_URL
+  );
+
+  console.log('Access Key:', accessKey);
+  console.log('Reception Result:', receptionResult.RespuestaRecepcionComprobante.estado);
+
+  return { accessKey, receptionResult };
+}
+
+generateAndSubmitInvoice()
+  .then(result => console.log('Success:', result))
+  .catch(error => console.error('Error:', error));
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use environment-specific endpoints">
+    Always use testing endpoints during development and only switch to production when ready.
+
+    ```typescript
+    const receptionUrl = process.env.NODE_ENV === 'production'
+      ? process.env.SRI_RECEPTION_URL_PROD
+      : process.env.SRI_RECEPTION_URL_TEST;
+    ```
+  </Accordion>
+
+  <Accordion title="Store and log access keys">
+    Always store the access key with your invoice record for future reference and authorization checks.
+
+    ```typescript
+    await db.invoices.create({
+      accessKey,
+      xmlContent: signedXml,
+      receptionStatus: receptionResult.RespuestaRecepcionComprobante.estado,
+      createdAt: new Date()
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Implement retry logic">
+    Network issues can cause temporary failures. Implement retry logic with exponential backoff.
+
+    ```typescript
+    async function submitWithRetry(signedXml: string, maxRetries = 3) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await documentReception(signedXml, process.env.SRI_RECEPTION_URL);
+        } catch (error) {
+          if (i === maxRetries - 1) throw error;
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Validate before submission">
+    Ensure your invoice data is valid before attempting to sign and submit.
+
+    ```typescript
+    function validateInvoiceData(data) {
+      if (!data.infoTributaria.ruc) {
+        throw new Error('RUC is required');
+      }
+      if (!data.infoFactura.totalSinImpuestos) {
+        throw new Error('Total without taxes is required');
+      }
+      // Add more validations...
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authorize Documents" icon="check" href="/guides/authorization">
+    Check authorization status after successful reception
+  </Card>
+  <Card title="Complete Workflow" icon="diagram-project" href="/guides/complete-workflow">
+    See the full end-to-end process
+  </Card>
+</CardGroup>
+
+## API Reference
+
+<Card title="documentReception" icon="code" href="/api/document-reception">
+  View complete API documentation for document reception
+</Card>

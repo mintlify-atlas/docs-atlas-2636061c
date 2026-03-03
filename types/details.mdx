@@ -1,0 +1,250 @@
+---
+title: Details Types
+description: Invoice line item details including products, services, quantities, prices, and taxes
+---
+
+## Overview
+
+The Details types represent the line items in an invoice, including product/service information, quantities, prices, discounts, and applicable taxes.
+
+## Details
+
+Container for all invoice line items.
+
+```typescript
+export type Details = {
+  detalle: Detail[];
+};
+```
+
+<ParamField path="detalle" type="Detail[]" required>
+  Array of invoice line items. Each item represents a product or service sold
+</ParamField>
+
+## Detail
+
+Individual line item with product/service information.
+
+```typescript
+export type Detail = {
+  codigoPrincipal: string;
+  codigoAuxiliar: string;
+  descripcion: string;
+  unidadMedida?: string;
+  cantidad: string;
+  precioUnitario: string;
+  precioSinSubsidio?: string;
+  descuento: string;
+  precioTotalSinImpuesto: string;
+  detallesAdicionales?: AdditionalDetails;
+  impuestos: Taxes;
+};
+```
+
+### Fields
+
+<ParamField path="codigoPrincipal" type="string" required>
+  Primary product/service code. This is typically your internal SKU or product identifier
+</ParamField>
+
+<ParamField path="codigoAuxiliar" type="string" required>
+  Auxiliary product code. Can be a barcode, alternative SKU, or secondary identifier
+</ParamField>
+
+<ParamField path="descripcion" type="string" required>
+  Product or service description. This is the text that appears on the invoice
+</ParamField>
+
+<ParamField path="unidadMedida" type="string">
+  Unit of measure (e.g., `"UND"` for units, `"KG"` for kilograms, `"M"` for meters)
+</ParamField>
+
+<ParamField path="cantidad" type="string" required>
+  Quantity. Format with up to 6 decimal places (e.g., `"50.000000"`)
+</ParamField>
+
+<ParamField path="precioUnitario" type="string" required>
+  Unit price. Format with up to 6 decimal places (e.g., `"10.500000"`)
+</ParamField>
+
+<ParamField path="precioSinSubsidio" type="string">
+  Price without subsidy (for subsidized products)
+</ParamField>
+
+<ParamField path="descuento" type="string" required>
+  Discount amount for this line item. Use `"0.00"` if no discount
+</ParamField>
+
+<ParamField path="precioTotalSinImpuesto" type="string" required>
+  Total price before taxes for this line item. Formula: `(cantidad × precioUnitario) - descuento`
+</ParamField>
+
+<ParamField path="detallesAdicionales" type="AdditionalDetails">
+  Additional custom details for this line item. See [AdditionalDetails](#additionaldetails)
+</ParamField>
+
+<ParamField path="impuestos" type="Taxes" required>
+  Taxes applicable to this line item. See [Taxes](#taxes)
+</ParamField>
+
+## AdditionalDetail
+
+Custom key-value pair for additional line item information.
+
+```typescript
+export type AdditionalDetail = {
+  "@nombre": string;
+  "@valor": string;
+};
+```
+
+<ParamField path="@nombre" type="string" required>
+  Name/key of the additional detail field (e.g., `"Color"`, `"Size"`, `"Warranty"`)
+</ParamField>
+
+<ParamField path="@valor" type="string" required>
+  Value of the additional detail field (e.g., `"Red"`, `"Large"`, `"1 year"`)
+</ParamField>
+
+## AdditionalDetails
+
+Container for additional line item details.
+
+```typescript
+export type AdditionalDetails = {
+  detAdicional: AdditionalDetail[];
+};
+```
+
+<ParamField path="detAdicional" type="AdditionalDetail[]" required>
+  Array of additional detail key-value pairs
+</ParamField>
+
+## Tax
+
+Individual tax applied to a line item.
+
+```typescript
+export type Tax = {
+  codigo: string;
+  codigoPorcentaje: string;
+  tarifa: string;
+  baseImponible: string;
+  valor: string;
+};
+```
+
+<ParamField path="codigo" type="string" required>
+  Tax code:
+  
+  - `"2"` - IVA (VAT)
+  - `"3"` - ICE (Special consumption tax)
+  - `"5"` - IRBPNR (Tax on non-renewable natural resources)
+</ParamField>
+
+<ParamField path="codigoPorcentaje" type="string" required>
+  Tax rate code. For IVA:
+  
+  - `"0"` - 0% IVA
+  - `"2"` - 12% IVA
+  - `"3"` - 14% IVA
+  - `"6"` - No Objeto de Impuesto (Not subject to tax)
+  - `"7"` - Exento de IVA (Exempt from VAT)
+  - `"8"` - IVA diferenciado (Differentiated VAT)
+  
+  For ICE, see table 18 of the electronic receipts technical sheet
+</ParamField>
+
+<ParamField path="tarifa" type="string" required>
+  Tax rate percentage (e.g., `"12"` for 12% VAT, `"0"` for 0% VAT)
+</ParamField>
+
+<ParamField path="baseImponible" type="string" required>
+  Taxable base amount (usually the `precioTotalSinImpuesto`)
+</ParamField>
+
+<ParamField path="valor" type="string" required>
+  Tax amount. Formula: `baseImponible × (tarifa / 100)`
+</ParamField>
+
+## Taxes
+
+Container for all taxes on a line item.
+
+```typescript
+export type Taxes = {
+  impuesto: Tax[];
+};
+```
+
+<ParamField path="impuesto" type="Tax[]" required>
+  Array of taxes. Most line items will have at least one tax (IVA). Some items may have multiple taxes (e.g., IVA + ICE)
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { Details, Detail } from 'open-factura';
+
+const details: Details = {
+  detalle: [
+    {
+      codigoPrincipal: "PROD-001",
+      codigoAuxiliar: "7890123456789",
+      descripcion: "Laptop Dell Inspiron 15",
+      unidadMedida: "UND",
+      cantidad: "2.000000",
+      precioUnitario: "500.000000",
+      descuento: "50.00",
+      precioTotalSinImpuesto: "950.00", // (2 × 500) - 50
+      detallesAdicionales: {
+        detAdicional: [
+          { "@nombre": "Color", "@valor": "Negro" },
+          { "@nombre": "RAM", "@valor": "16GB" },
+          { "@nombre": "Almacenamiento", "@valor": "512GB SSD" }
+        ]
+      },
+      impuestos: {
+        impuesto: [
+          {
+            codigo: "2", // IVA
+            codigoPorcentaje: "2", // 12%
+            tarifa: "12",
+            baseImponible: "950.00",
+            valor: "114.00" // 950 × 0.12
+          }
+        ]
+      }
+    },
+    {
+      codigoPrincipal: "SVC-001",
+      codigoAuxiliar: "SVC-INSTALL",
+      descripcion: "Servicio de instalación y configuración",
+      unidadMedida: "SRV",
+      cantidad: "1.000000",
+      precioUnitario: "50.000000",
+      descuento: "0.00",
+      precioTotalSinImpuesto: "50.00",
+      impuestos: {
+        impuesto: [
+          {
+            codigo: "2",
+            codigoPorcentaje: "2",
+            tarifa: "12",
+            baseImponible: "50.00",
+            valor: "6.00"
+          }
+        ]
+      }
+    }
+  ]
+};
+```
+
+## Notes
+
+- Each line item must have at least one tax defined in the `impuestos` array
+- The `precioTotalSinImpuesto` should equal `(cantidad × precioUnitario) - descuento`
+- Quantity and unit price support up to 6 decimal places for precision
+- Additional details are optional but useful for providing extra product information
+- The sum of all `precioTotalSinImpuesto` values should equal the `totalSinImpuestos` in InvoiceInfo

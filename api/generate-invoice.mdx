@@ -1,0 +1,347 @@
+---
+title: "generateInvoice"
+description: "Generate a complete invoice object with an automatically generated access key"
+---
+
+## Function Signature
+
+```typescript
+function generateInvoice(invoiceData: InvoiceInput): {
+  invoice: Invoice;
+  accessKey: string;
+}
+```
+
+## Description
+
+Generates a complete invoice object from the provided invoice data. This function automatically generates an access key (clave de acceso) based on the invoice information and returns both the complete invoice structure and the generated access key.
+
+The access key is generated using the date, document code, RUC, environment, establishment, emission point, and sequential number from the invoice data.
+
+## Parameters
+
+<ParamField path="invoiceData" type="InvoiceInput" required>
+  The invoice data object containing all information needed to generate the invoice.
+
+  <Expandable title="InvoiceInput properties">
+    <ParamField path="infoTributaria" type="Omit<TaxInfo, 'claveAcceso'>" required>
+      Tax information for the invoice. The access key (claveAcceso) is automatically generated.
+      
+      <Expandable title="Tax Info properties">
+        <ParamField path="ambiente" type="'1' | '2'" required>
+          Environment type. `1` for pruebas (testing), `2` for produccion (production).
+        </ParamField>
+        
+        <ParamField path="tipoEmision" type="string" required>
+          Emission type.
+        </ParamField>
+        
+        <ParamField path="razonSocial" type="string" required>
+          Business name.
+        </ParamField>
+        
+        <ParamField path="nombreComercial" type="string" required>
+          Commercial name.
+        </ParamField>
+        
+        <ParamField path="ruc" type="string" required>
+          RUC number.
+        </ParamField>
+        
+        <ParamField path="codDoc" type="'01' | '03' | '04' | '05' | '06' | '07'" required>
+          Document code. `01` for FACTURA, `03` for LIQUIDACIÓN DE COMPRA, `04` for NOTA DE CRÉDITO, `05` for NOTA DE DÉBITO, `06` for GUÍA DE REMISIÓN, `07` for COMPROBANTE DE RETENCIÓN.
+        </ParamField>
+        
+        <ParamField path="estab" type="string" required>
+          Establishment code.
+        </ParamField>
+        
+        <ParamField path="ptoEmi" type="string" required>
+          Emission point code.
+        </ParamField>
+        
+        <ParamField path="secuencial" type="string" required>
+          Sequential number.
+        </ParamField>
+        
+        <ParamField path="dirMatriz" type="string" required>
+          Main office address.
+        </ParamField>
+        
+        <ParamField path="regimenMicroempresas" type="'CONTRIBUYENTE RÉGIMEN MICROEMPRESAS'">
+          Microenterprise regime status.
+        </ParamField>
+        
+        <ParamField path="agenteRetencion" type="string">
+          Retention agent code.
+        </ParamField>
+        
+        <ParamField path="contribuyenteRimpe" type="'CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE' | 'CONTRIBUYENTE RÉGIMEN RIMPE'">
+          RIMPE regime status.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="infoFactura" type="InvoiceInfo" required>
+      Invoice information including buyer details, totals, and payment information.
+      
+      <Expandable title="Invoice Info properties">
+        <ParamField path="fechaEmision" type="string" required>
+          Emission date in format DD/MM/YYYY.
+        </ParamField>
+        
+        <ParamField path="dirEstablecimiento" type="string" required>
+          Establishment address.
+        </ParamField>
+        
+        <ParamField path="obligadoContabilidad" type="'SI' | 'NO'" required>
+          Whether obligated to keep accounting records.
+        </ParamField>
+        
+        <ParamField path="tipoIdentificacionComprador" type="'04' | '05' | '06' | '07' | '08'" required>
+          Buyer identification type. `04` for RUC, `05` for CÉDULA, `06` for PASAPORTE, `07` for VENTA A CONSUMIDOR FINAL, `08` for IDENTIFICACIÓN DEL EXTERIOR.
+        </ParamField>
+        
+        <ParamField path="razonSocialComprador" type="string" required>
+          Buyer's business name.
+        </ParamField>
+        
+        <ParamField path="identificacionComprador" type="string" required>
+          Buyer's identification number.
+        </ParamField>
+        
+        <ParamField path="direccionComprador" type="string" required>
+          Buyer's address.
+        </ParamField>
+        
+        <ParamField path="totalSinImpuestos" type="string" required>
+          Total without taxes.
+        </ParamField>
+        
+        <ParamField path="totalDescuento" type="string" required>
+          Total discount amount.
+        </ParamField>
+        
+        <ParamField path="totalConImpuestos" type="TotalWithTaxes" required>
+          Total with taxes breakdown.
+        </ParamField>
+        
+        <ParamField path="importeTotal" type="string" required>
+          Total amount.
+        </ParamField>
+        
+        <ParamField path="moneda" type="string" required>
+          Currency code.
+        </ParamField>
+        
+        <ParamField path="pagos" type="Payments" required>
+          Payment information array.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="detalles" type="Details" required>
+      Array of invoice line items.
+      
+      <Expandable title="Details structure">
+        <ParamField path="detalle" type="Detail[]" required>
+          Array of detail objects, each containing:
+          - `codigoPrincipal`: Main product code
+          - `codigoAuxiliar`: Auxiliary product code
+          - `descripcion`: Product description
+          - `cantidad`: Quantity
+          - `precioUnitario`: Unit price
+          - `descuento`: Discount amount
+          - `precioTotalSinImpuesto`: Total price without tax
+          - `impuestos`: Tax information
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="reembolsos" type="Reimbursements">
+      Reimbursement information (optional).
+    </ParamField>
+
+    <ParamField path="retenciones" type="Retentions">
+      Retention information (optional).
+    </ParamField>
+
+    <ParamField path="infoSustitutivaGuiaRemision" type="RemisionGuideSustitutiveInfo">
+      Substitutive remission guide information (optional).
+    </ParamField>
+
+    <ParamField path="otrosRubrosTerceros" type="OtherThirdPartyValues">
+      Other third-party values (optional).
+    </ParamField>
+
+    <ParamField path="tipoNegociable" type="object">
+      Negotiable type information (optional).
+      
+      <Expandable title="Properties">
+        <ParamField path="correo" type="string" required>
+          Email address.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="maquinaFiscal" type="object">
+      Fiscal machine information (optional).
+      
+      <Expandable title="Properties">
+        <ParamField path="marca" type="string" required>
+          Machine brand.
+        </ParamField>
+        
+        <ParamField path="modelo" type="string" required>
+          Machine model.
+        </ParamField>
+        
+        <ParamField path="serie" type="string" required>
+          Machine serial number.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="infoAdicional" type="AdditionalInfo">
+      Additional information (optional).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="invoice" type="Invoice">
+  The complete invoice object ready for XML generation.
+  
+  <Expandable title="Invoice structure">
+    <ResponseField name="factura" type="object">
+      The root invoice object.
+      
+      <Expandable title="Properties">
+        <ResponseField name="@xmlns:ds" type="string">
+          XML namespace for digital signature. Value: `http://www.w3.org/2000/09/xmldsig#`
+        </ResponseField>
+        
+        <ResponseField name="@xmlns:xsi" type="string">
+          XML namespace for schema instance. Value: `http://www.w3.org/2001/XMLSchema-instance`
+        </ResponseField>
+        
+        <ResponseField name="@id" type="string">
+          Document ID. Value: `comprobante`
+        </ResponseField>
+        
+        <ResponseField name="@version" type="string">
+          Document version. Value: `1.0.0`
+        </ResponseField>
+        
+        <ResponseField name="infoTributaria" type="TaxInfo">
+          Tax information with the generated access key included.
+        </ResponseField>
+        
+        <ResponseField name="infoFactura" type="InvoiceInfo">
+          Invoice information.
+        </ResponseField>
+        
+        <ResponseField name="detalles" type="Details">
+          Invoice line items.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="accessKey" type="string">
+  The automatically generated access key (clave de acceso) for the invoice. This is a 49-digit numerical string generated based on the invoice information.
+</ResponseField>
+
+## Example
+
+```typescript
+import { generateInvoice } from 'open-factura';
+
+const invoiceData = {
+  infoTributaria: {
+    ambiente: '1',
+    tipoEmision: '1',
+    razonSocial: 'Mi Empresa S.A.',
+    nombreComercial: 'Mi Empresa',
+    ruc: '1234567890001',
+    codDoc: '01',
+    estab: '001',
+    ptoEmi: '001',
+    secuencial: '000000001',
+    dirMatriz: 'Av. Principal 123'
+  },
+  infoFactura: {
+    fechaEmision: '15/03/2026',
+    dirEstablecimiento: 'Av. Principal 123',
+    obligadoContabilidad: 'SI',
+    tipoIdentificacionComprador: '05',
+    razonSocialComprador: 'Juan Pérez',
+    identificacionComprador: '0987654321',
+    direccionComprador: 'Calle Secundaria 456',
+    totalSinImpuestos: '100.00',
+    totalDescuento: '0.00',
+    totalConImpuestos: {
+      totalImpuesto: [
+        {
+          codigo: '2',
+          codigoPorcentaje: '2',
+          descuentoAdicional: '0.00',
+          baseImponible: '100.00',
+          tarifa: '12',
+          valor: '12.00'
+        }
+      ]
+    },
+    importeTotal: '112.00',
+    moneda: 'DOLAR',
+    pagos: {
+      pago: [
+        {
+          formaPago: '01',
+          total: '112.00',
+          plazo: '0',
+          unidadTiempo: 'dias'
+        }
+      ]
+    }
+  },
+  detalles: {
+    detalle: [
+      {
+        codigoPrincipal: 'PROD001',
+        codigoAuxiliar: 'AUX001',
+        descripcion: 'Producto de ejemplo',
+        cantidad: '1.000000',
+        precioUnitario: '100.000000',
+        descuento: '0.00',
+        precioTotalSinImpuesto: '100.00',
+        impuestos: {
+          impuesto: [
+            {
+              codigo: '2',
+              codigoPorcentaje: '2',
+              tarifa: '12',
+              baseImponible: '100.00',
+              valor: '12.00'
+            }
+          ]
+        }
+      }
+    ]
+  }
+};
+
+const { invoice, accessKey } = generateInvoice(invoiceData);
+
+console.log('Access Key:', accessKey);
+console.log('Invoice:', invoice);
+```
+
+## See Also
+
+- [generateInvoiceXml](/api/generate-invoice-xml) - Convert the invoice object to XML format
+- [signXml](/api/sign-xml) - Sign the generated XML
+- [documentReception](/api/document-reception) - Submit the invoice for reception
+- [documentAuthorization](/api/document-authorization) - Get authorization for the invoice
