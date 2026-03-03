@@ -29,12 +29,12 @@ export async function documentAuthorization(
 ## SRI Endpoints
 
 ### Testing Environment
-```
-https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
+```text
+https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
 ```
 
 ### Production Environment
-```
+```text
 https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl
 ```
 
@@ -50,7 +50,7 @@ https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffl
 import { documentAuthorization } from './services/authorization';
 
 const accessKey = '0123456789012345678901234567890123456789012345678';
-const authorizationUrl = 'https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl';
+const authorizationUrl = 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl';
 
 try {
   const result = await documentAuthorization(accessKey, authorizationUrl);

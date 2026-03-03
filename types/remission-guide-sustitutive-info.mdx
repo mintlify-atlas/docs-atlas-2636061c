@@ -1,0 +1,195 @@
+---
+title: RemisionGuideSustitutiveInfo Types
+description: Delivery guide information for goods transportation and logistics
+---
+
+## Overview
+
+The `RemisionGuideSustitutiveInfo` type contains information about the transportation and delivery of goods. This is used when the invoice serves as a substitute for a delivery guide (guía de remisión) according to Ecuadorian tax regulations.
+
+## RemisionGuideSustitutiveInfo
+
+Complete information about the transportation of goods.
+
+```typescript
+export type RemisionGuideSustitutiveInfo = {
+  dirPartida: string;
+  dirDestinatario: string;
+  fechaIniTransporte: string;
+  fechaFinTransporte: string;
+  razonSocialTransportista: string;
+  tipoIdentificacionTransportista: string;
+  rucTransportista: string;
+  placa: string;
+  destinos: Arrivals;
+};
+```
+
+### Fields
+
+<ParamField path="dirPartida" type="string" required>
+  Starting address for the shipment. Full address where goods are picked up.
+</ParamField>
+
+<ParamField path="dirDestinatario" type="string" required>
+  Recipient's address. Full delivery destination address.
+</ParamField>
+
+<ParamField path="fechaIniTransporte" type="string" required>
+  Transportation start date in DD/MM/YYYY format (e.g., "15/03/2024").
+</ParamField>
+
+<ParamField path="fechaFinTransporte" type="string" required>
+  Transportation end date in DD/MM/YYYY format (e.g., "16/03/2024").
+</ParamField>
+
+<ParamField path="razonSocialTransportista" type="string" required>
+  Business name of the transportation company or carrier.
+</ParamField>
+
+<ParamField path="tipoIdentificacionTransportista" type="string" required>
+  Type of identification for the carrier. Common values:
+  - "04": RUC (Tax ID)
+  - "05": Cédula (National ID)
+  - "06": Pasaporte (Passport)
+</ParamField>
+
+<ParamField path="rucTransportista" type="string" required>
+  Tax identification number (RUC) or ID of the transportation provider.
+</ParamField>
+
+<ParamField path="placa" type="string" required>
+  Vehicle license plate number used for transportation.
+</ParamField>
+
+<ParamField path="destinos" type="Arrivals" required>
+  Array of delivery destinations with route information.
+</ParamField>
+
+## Arrivals
+
+Container for multiple delivery destinations.
+
+```typescript
+export type Arrivals = {
+  destino: Arrival[];
+};
+```
+
+<ParamField path="destino" type="Arrival[]" required>
+  Array of individual destinations for the shipment
+</ParamField>
+
+## Arrival
+
+Individual delivery destination with route details.
+
+```typescript
+export type Arrival = {
+  motivoTraslado: string;
+  docAduaneroUnico: string;
+  codEstabDestino: string;
+  ruta: string;
+};
+```
+
+### Fields
+
+<ParamField path="motivoTraslado" type="string" required>
+  Reason for the transportation. Examples: "Venta", "Traslado entre bodegas", "Devolución".
+</ParamField>
+
+<ParamField path="docAduaneroUnico" type="string" required>
+  Customs document number if applicable for international shipments. Use empty string for domestic.
+</ParamField>
+
+<ParamField path="codEstabDestino" type="string" required>
+  Destination establishment code (3 digits, e.g., "001").
+</ParamField>
+
+<ParamField path="ruta" type="string" required>
+  Route description or reference for the delivery.
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { RemisionGuideSustitutiveInfo, Arrivals, Arrival } from 'open-factura';
+
+const remissionGuideInfo: RemisionGuideSustitutiveInfo = {
+  dirPartida: "Av. Amazonas N24-03 y Colón, Quito",
+  dirDestinatario: "Av. 9 de Octubre 123, Guayaquil",
+  fechaIniTransporte: "15/03/2024",
+  fechaFinTransporte: "16/03/2024",
+  razonSocialTransportista: "Transportes Rápidos S.A.",
+  tipoIdentificacionTransportista: "04",
+  rucTransportista: "1791234567001",
+  placa: "GYQ-1234",
+  destinos: {
+    destino: [
+      {
+        motivoTraslado: "Venta",
+        docAduaneroUnico: "",
+        codEstabDestino: "002",
+        ruta: "Quito - Guayaquil vía Santo Domingo"
+      }
+    ]
+  }
+};
+```
+
+## Multiple Destinations Example
+
+```typescript
+const multipleDestinations: RemisionGuideSustitutiveInfo = {
+  dirPartida: "Bodega Central, Quito",
+  dirDestinatario: "Varias sucursales",
+  fechaIniTransporte: "20/03/2024",
+  fechaFinTransporte: "22/03/2024",
+  razonSocialTransportista: "Logística Nacional Cía. Ltda.",
+  tipoIdentificacionTransportista: "04",
+  rucTransportista: "1792345678001",
+  placa: "PCH-5678",
+  destinos: {
+    destino: [
+      {
+        motivoTraslado: "Traslado entre bodegas",
+        docAduaneroUnico: "",
+        codEstabDestino: "003",
+        ruta: "Quito - Cuenca"
+      },
+      {
+        motivoTraslado: "Traslado entre bodegas",
+        docAduaneroUnico: "",
+        codEstabDestino: "004",
+        ruta: "Quito - Ambato"
+      }
+    ]
+  }
+};
+```
+
+## Important Notes
+
+<Note>
+  The remission guide information is required when the invoice acts as a substitute for a separate delivery guide (guía de remisión).
+</Note>
+
+<Warning>
+  Ensure dates are in DD/MM/YYYY format. The end date must be equal to or after the start date.
+</Warning>
+
+<Info>
+  For domestic shipments within Ecuador, leave `docAduaneroUnico` as an empty string. Only include customs documentation for international shipments.
+</Info>
+
+## Related Types
+
+<CardGroup cols={2}>
+  <Card title="Invoice" icon="file-invoice" href="/types/invoice">
+    See how RemisionGuideSustitutiveInfo integrates with invoices
+  </Card>
+  <Card title="Tax Info" icon="building" href="/types/tax-info">
+    Learn about establishment codes and tax information
+  </Card>
+</CardGroup>

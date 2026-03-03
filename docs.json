@@ -57,7 +57,10 @@
               "types/invoice-info",
               "types/details",
               "types/reimbursements",
-              "types/retentions"
+              "types/retentions",
+              "types/additional-info",
+              "types/other-third-party-values",
+              "types/remission-guide-sustitutive-info"
             ]
           }
         ]

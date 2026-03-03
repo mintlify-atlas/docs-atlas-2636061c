@@ -29,12 +29,12 @@ export async function documentReception(
 ## SRI Endpoints
 
 ### Testing Environment
-```
-https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
+```text
+https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
 ```
 
 ### Production Environment
-```
+```text
 https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl
 ```
 
@@ -54,7 +54,7 @@ const xmlDocument = `<?xml version="1.0" encoding="UTF-8"?>
   <!-- Your invoice XML content -->
 </factura>`;
 
-const receptionUrl = 'https://celospruebas.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl';
+const receptionUrl = 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl';
 
 try {
   const result = await documentReception(xmlDocument, receptionUrl);

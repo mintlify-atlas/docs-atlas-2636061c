@@ -1,0 +1,105 @@
+---
+title: OtherThirdPartyValues Types
+description: Third-party billing amounts for services or products provided by external parties
+---
+
+## Overview
+
+The `OtherThirdPartyValues` type is used to document charges from third parties that are being billed through your invoice. This is common in scenarios where you're acting as an intermediary or billing for services provided by external vendors.
+
+## OtherThirdPartyValues
+
+Container for all third-party billing items.
+
+```typescript
+export type OtherThirdPartyValues = {
+  rubro: ThirdPartyValue[];
+};
+```
+
+<ParamField path="rubro" type="ThirdPartyValue[]" required>
+  Array of third-party charges to include in the invoice
+</ParamField>
+
+## ThirdPartyValue
+
+Individual third-party charge with a concept description and amount.
+
+```typescript
+export type ThirdPartyValue = {
+  concepto: string;
+  total: string;
+};
+```
+
+### Fields
+
+<ParamField path="concepto" type="string" required>
+  Description of the third-party charge or service. This should clearly identify what is being billed.
+</ParamField>
+
+<ParamField path="total" type="string" required>
+  Total amount for this third-party charge, formatted as a decimal string (e.g., "150.00").
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { OtherThirdPartyValues, ThirdPartyValue } from 'open-factura';
+
+const otherThirdPartyValues: OtherThirdPartyValues = {
+  rubro: [
+    {
+      concepto: "Servicio de transporte - Empresa ABC",
+      total: "75.50"
+    },
+    {
+      concepto: "Almacenamiento temporal - Bodega XYZ",
+      total: "120.00"
+    },
+    {
+      concepto: "Seguro de mercancía",
+      total: "35.25"
+    }
+  ]
+};
+```
+
+## Common Use Cases
+
+<Accordion title="Logistics and shipping">
+  Bill for third-party transportation, freight, or courier services that are part of the sale.
+</Accordion>
+
+<Accordion title="Storage and warehousing">
+  Include charges for temporary storage, warehousing, or inventory management by external providers.
+</Accordion>
+
+<Accordion title="Professional services">
+  Document fees for consulting, legal, or technical services provided by subcontractors.
+</Accordion>
+
+<Accordion title="Insurance and guarantees">
+  Add insurance premiums or warranty costs provided by third-party insurers.
+</Accordion>
+
+## Important Notes
+
+<Note>
+  Third-party values are separate from the main invoice totals and are typically used for transparency in billing when you're acting as an intermediary.
+</Note>
+
+<Warning>
+  Ensure that you have proper authorization and documentation to bill for third-party services. Tax implications may vary depending on your business structure.
+</Warning>
+
+## Related Types
+
+<CardGroup cols={2}>
+  <Card title="Invoice" icon="file-invoice" href="/types/invoice">
+    See how OtherThirdPartyValues fits into the invoice structure
+  </Card>
+  <Card title="Reimbursements" icon="money-bill-transfer" href="/types/reimbursements">
+    Learn about reimbursement handling
+  </Card>
+</CardGroup>

@@ -1,0 +1,95 @@
+---
+title: AdditionalInfo Types
+description: Custom additional fields that can be included in electronic invoices
+---
+
+## Overview
+
+The `AdditionalInfo` type allows you to include custom key-value pairs in your electronic invoices. This is useful for adding company-specific information or additional details required by your business process.
+
+## AdditionalInfo
+
+Container for additional custom fields in the invoice.
+
+```typescript
+export type AdditionalInfo = {
+  campoAdicional: AdditionalField[];
+};
+```
+
+<ParamField path="campoAdicional" type="AdditionalField[]" required>
+  Array of custom fields to include in the invoice
+</ParamField>
+
+## AdditionalField
+
+Individual custom field with a name and value.
+
+```typescript
+export type AdditionalField = {
+  "@nombre": string;
+  "#": string;
+};
+```
+
+### Fields
+
+<ParamField path="@nombre" type="string" required>
+  The name of the custom field. This will be displayed as the field label.
+</ParamField>
+
+<ParamField path="#" type="string" required>
+  The value of the custom field. This is the actual data for this field.
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { AdditionalInfo } from 'open-factura';
+
+const additionalInfo: AdditionalInfo = {
+  campoAdicional: [
+    {
+      "@nombre": "Email",
+      "#": "cliente@example.com"
+    },
+    {
+      "@nombre": "Teléfono",
+      "#": "+593 2 1234567"
+    },
+    {
+      "@nombre": "Observaciones",
+      "#": "Entrega en horario de oficina"
+    }
+  ]
+};
+```
+
+## Common Use Cases
+
+<Accordion title="Customer contact information">
+  Add email addresses, phone numbers, or alternative contact methods for the customer.
+</Accordion>
+
+<Accordion title="Delivery instructions">
+  Include special delivery notes, preferred time windows, or location details.
+</Accordion>
+
+<Accordion title="Internal references">
+  Add purchase order numbers, project codes, or other internal tracking identifiers.
+</Accordion>
+
+<Accordion title="Payment terms">
+  Specify payment deadlines, bank transfer details, or financing arrangements.
+</Accordion>
+
+## Related Types
+
+<CardGroup cols={2}>
+  <Card title="Invoice" icon="file-invoice" href="/types/invoice">
+    See how AdditionalInfo fits into the complete invoice structure
+  </Card>
+  <Card title="Invoice Generation" icon="code" href="/api/generate-invoice">
+    Learn how to generate invoices with additional fields
+  </Card>
+</CardGroup>
